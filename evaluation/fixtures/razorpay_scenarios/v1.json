@@ -1,0 +1,446 @@
+{
+  "fixture_version": "v1",
+  "scenarios": [
+    {
+      "scenario_id": "cadence_mismatch_01",
+      "expected_verdict": "cadence_mismatch",
+      "expected_mismatch_type": "cadence_mismatch",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid every 1 month via RazorpayX Payouts.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "every 1 month",
+        "value_structured": {
+          "numeric_value": 1,
+          "unit": "month"
+        },
+        "extraction_confidence": 0.92
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f001",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f002",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767830400
+            },
+            {
+              "id": "pout_f003",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1768435200
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "cadence_mismatch_02",
+      "expected_verdict": "cadence_mismatch",
+      "expected_mismatch_type": "cadence_mismatch",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid every 2 weeks via RazorpayX Payouts.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "every 2 weeks",
+        "value_structured": {
+          "numeric_value": 2,
+          "unit": "weeks"
+        },
+        "extraction_confidence": 0.9
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f004",
+              "entity": "payout",
+              "amount": 300000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f005",
+              "entity": "payout",
+              "amount": 300000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1771113600
+            },
+            {
+              "id": "pout_f006",
+              "entity": "payout",
+              "amount": 300000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1775001600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "cadence_mismatch_03",
+      "expected_verdict": "cadence_mismatch",
+      "expected_mismatch_type": "cadence_mismatch",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid weekly via RazorpayX Payouts.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "weekly",
+        "value_structured": {
+          "numeric_value": 1,
+          "unit": "week"
+        },
+        "extraction_confidence": 0.88
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f007",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f008",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1769817600
+            },
+            {
+              "id": "pout_f009",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1772409600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "amount_mismatch_01",
+      "expected_verdict": "amount_mismatch",
+      "expected_mismatch_type": "amount_mismatch",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid an amount of 5000 per invoice.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "an amount of 5000",
+        "value_structured": {
+          "numeric_value": 5000,
+          "unit": "INR"
+        },
+        "extraction_confidence": 0.91
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f010",
+              "entity": "payout",
+              "amount": 800000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f011",
+              "entity": "payout",
+              "amount": 800000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1769817600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "amount_mismatch_02",
+      "expected_verdict": "amount_mismatch",
+      "expected_mismatch_type": "amount_mismatch",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid an amount of 10000 per invoice.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "an amount of 10000",
+        "value_structured": {
+          "numeric_value": 10000,
+          "unit": "INR"
+        },
+        "extraction_confidence": 0.9
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f012",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f013",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1769817600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "amount_mismatch_03",
+      "expected_verdict": "amount_mismatch",
+      "expected_mismatch_type": "amount_mismatch",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid an amount of 2000 per invoice.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "an amount of 2000",
+        "value_structured": {
+          "numeric_value": 2000,
+          "unit": "INR"
+        },
+        "extraction_confidence": 0.87
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f014",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f015",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1769817600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "missing_evidence_01",
+      "expected_verdict": "missing_platform_evidence",
+      "expected_mismatch_type": "missing_platform_evidence",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid every 1 month via RazorpayX Payouts.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "every 1 month",
+        "value_structured": {
+          "numeric_value": 1,
+          "unit": "month"
+        },
+        "extraction_confidence": 0.9
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": []
+        }
+      }
+    },
+    {
+      "scenario_id": "missing_evidence_02",
+      "expected_verdict": "missing_platform_evidence",
+      "expected_mismatch_type": "missing_platform_evidence",
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid every 2 weeks via RazorpayX Payouts.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "every 2 weeks",
+        "value_structured": {
+          "numeric_value": 2,
+          "unit": "weeks"
+        },
+        "extraction_confidence": 0.9
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f016",
+              "entity": "payout",
+              "amount": 300000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "unverifiable_01",
+      "expected_verdict": "unverifiable",
+      "expected_mismatch_type": "trigger_condition_unverifiable",
+      "razorpay_reference_type": "subscription",
+      "clause_type": "termination",
+      "clause_text": "2. Termination. Either party may terminate this Agreement upon 30 days written notice.",
+      "extracted_term": {
+        "term_type": "notice_period",
+        "value_raw": "30 days written notice",
+        "value_structured": {
+          "numeric_value": 30,
+          "unit": "days"
+        },
+        "extraction_confidence": 0.85
+      },
+      "razorpay_payload": {}
+    },
+    {
+      "scenario_id": "unverifiable_02",
+      "expected_verdict": "unverifiable",
+      "expected_mismatch_type": "trigger_condition_unverifiable",
+      "razorpay_reference_type": "subscription",
+      "clause_type": "auto_renewal",
+      "clause_text": "4. Auto-Renewal. This Agreement automatically renews annually unless either party objects.",
+      "extracted_term": {
+        "term_type": "auto_renewal_term",
+        "value_raw": "automatically renews annually",
+        "value_structured": {
+          "numeric_value": null,
+          "unit": null
+        },
+        "extraction_confidence": 0.8
+      },
+      "razorpay_payload": {}
+    },
+    {
+      "scenario_id": "true_negative_01",
+      "expected_verdict": "no_mismatch",
+      "expected_mismatch_type": null,
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid every 1 month, an amount of 5000 per invoice.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "every 1 month",
+        "value_structured": {
+          "numeric_value": 1,
+          "unit": "month"
+        },
+        "extraction_confidence": 0.93
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f017",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f018",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1769817600
+            },
+            {
+              "id": "pout_f019",
+              "entity": "payout",
+              "amount": 500000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1772409600
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "true_negative_02",
+      "expected_verdict": "no_mismatch",
+      "expected_mismatch_type": null,
+      "razorpay_reference_type": "payout",
+      "clause_type": "payment_schedule",
+      "clause_text": "1. Payment Schedule. Vendor shall be paid weekly, an amount of 2000 per invoice.",
+      "extracted_term": {
+        "term_type": "payout_frequency",
+        "value_raw": "weekly",
+        "value_structured": {
+          "numeric_value": 1,
+          "unit": "week"
+        },
+        "extraction_confidence": 0.9
+      },
+      "razorpay_payload": {
+        "payouts": {
+          "items": [
+            {
+              "id": "pout_f020",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767225600
+            },
+            {
+              "id": "pout_f021",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1767830400
+            },
+            {
+              "id": "pout_f022",
+              "entity": "payout",
+              "amount": 200000,
+              "currency": "INR",
+              "status": "processed",
+              "created_at": 1768435200
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

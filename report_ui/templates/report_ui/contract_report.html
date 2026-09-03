@@ -1,0 +1,148 @@
+{% extends "report_ui/base.html" %}
+
+{% block title %}Reasoning chain{% endblock %}
+
+{% block content %}
+<h1>Reasoning chain</h1>
+<p class="contract-meta">
+  Contract <code>{{ contract.id }}</code> &middot; Engagement {{ contract.engagement_id }}
+</p>
+
+<section class="report-summary">
+  <h2>Overall report</h2>
+  {% if report.overall_risk_score is not None %}
+    <p>Overall risk score: <strong>{{ report.overall_risk_score|floatformat:2 }}</strong></p>
+  {% else %}
+    <p>Overall risk score: <strong>N/A</strong> (no scored clauses yet)</p>
+  {% endif %}
+  <p>
+    {{ report.flagged_clauses|length }} scored clause(s) &middot;
+    {{ report.platform_mismatches|length }} platform mismatch(es) &middot;
+    {{ report.needs_human_review_clauses|length }} clause(s) needing human review
+  </p>
+</section>
+
+<h2>Clauses</h2>
+<ol class="clause-list">
+  {% for chain in clause_chains %}
+  <li class="clause-entry" data-sequence-index="{{ chain.clause.sequence_index }}">
+    <details>
+      <summary>
+        <span class="clause-index">Clause {{ chain.clause.sequence_index }}</span>
+        {% if chain.classification_needs_human_review %}
+          <span class="needs-review">Needs human review</span>
+        {% elif chain.clause.clause_type %}
+          <span class="clause-type">{{ chain.clause.get_clause_type_display }}</span>
+        {% else %}
+          <span class="clause-type empty-state">not yet classified</span>
+        {% endif %}
+      </summary>
+
+      <div class="reasoning-chain">
+        <section class="reasoning-stage clause-text-stage">
+          <h3>Clause text</h3>
+          <p class="clause-text">{{ chain.clause.clause_text }}</p>
+        </section>
+
+        <section class="reasoning-stage classification-stage">
+          <h3>Classification</h3>
+          {% if chain.classification_needs_human_review %}
+            <p><span class="needs-review">Needs human review</span></p>
+            {% if chain.clause.classification_rationale %}
+              <p class="rationale">{{ chain.clause.classification_rationale }}</p>
+            {% endif %}
+          {% elif chain.clause.clause_type %}
+            <p>
+              Type: <strong>{{ chain.clause.get_clause_type_display }}</strong>
+              (confidence {{ chain.clause.classification_confidence|floatformat:2 }})
+            </p>
+            {% if chain.clause.classification_rationale %}
+              <p class="rationale">{{ chain.clause.classification_rationale }}</p>
+            {% endif %}
+          {% else %}
+            <p class="empty-state">not yet classified</p>
+          {% endif %}
+        </section>
+
+        <section class="reasoning-stage extraction-stage">
+          <h3>Extracted term(s)</h3>
+          {% if chain.extracted_terms %}
+            <ul class="extracted-term-list">
+              {% for term in chain.extracted_terms %}
+              <li class="extracted-term">
+                {% if term.needs_human_review %}
+                  <span class="needs-review">Needs human review</span>
+                {% endif %}
+                <strong>{{ term.get_term_type_display }}</strong>:
+                <span class="verbatim-span">&ldquo;{{ term.value_raw }}&rdquo;</span>
+                <span class="confidence">(confidence {{ term.extraction_confidence|floatformat:2 }})</span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty-state">no extracted terms</p>
+          {% endif %}
+        </section>
+
+        <section class="reasoning-stage platform-evidence-stage">
+          <h3>Platform evidence</h3>
+          {% if chain.mismatch_flags %}
+            <ul class="mismatch-flag-list">
+              {% for flag in chain.mismatch_flags %}
+              <li class="mismatch-flag">
+                <strong>{{ flag.get_mismatch_type_display }}</strong>:
+                {{ flag.description }}
+              </li>
+              {% endfor %}
+            </ul>
+          {% elif chain.verified_platform_records %}
+            <p><span class="confirmed-evidence">Confirmed - matches platform data</span></p>
+            <ul class="verified-record-list">
+              {% for record in chain.verified_platform_records %}
+              <li class="verified-record">
+                <strong>{{ record.get_record_type_display }}</strong>:
+                <span class="verbatim-span">{{ record.razorpay_id }}</span>
+                {% if record.payload.amount %}
+                  <span class="record-summary">amount {{ record.payload.amount }}</span>
+                {% endif %}
+                {% if record.payload.period %}
+                  <span class="record-summary">period {{ record.payload.period }}</span>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty-state">no platform evidence available</p>
+          {% endif %}
+        </section>
+
+        <section class="reasoning-stage risk-verdict-stage">
+          <h3>Risk verdict</h3>
+          {% if chain.risk_assessment %}
+            {% if chain.risk_assessment.severity == "needs_human_review" %}
+              <p><span class="needs-review">Needs human review</span></p>
+              <p>{{ chain.risk_assessment.explanation }}</p>
+            {% else %}
+              <p class="severity-{{ chain.risk_assessment.severity }}">
+                Severity: <strong>{{ chain.risk_assessment.get_severity_display }}</strong>
+                (asymmetry {{ chain.risk_assessment.asymmetry_score|floatformat:2 }})
+              </p>
+              <p>{{ chain.risk_assessment.explanation }}</p>
+              {% if chain.risk_assessment.suggested_rewrite %}
+                <p class="suggested-rewrite">
+                  Suggested rewrite: {{ chain.risk_assessment.suggested_rewrite }}
+                </p>
+              {% endif %}
+            {% endif %}
+          {% else %}
+            <p class="empty-state">not yet assessed</p>
+          {% endif %}
+        </section>
+      </div>
+    </details>
+  </li>
+  {% empty %}
+  <li class="empty-state">No clauses found for this contract.</li>
+  {% endfor %}
+</ol>
+{% endblock %}

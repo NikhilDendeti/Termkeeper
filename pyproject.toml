@@ -1,0 +1,39 @@
+[project]
+name = "payment-terms-analyzer"
+version = "0.1.0"
+description = "AI Payment Terms & Vendor Risk Analyzer — Razorpay AI Buildathon (Open Track)"
+requires-python = ">=3.11"
+dependencies = [
+    "django>=6.1,<7.0",
+    "djangorestframework>=3.15",
+    "openai>=1.50",
+    "python-dotenv>=1.0",
+    "razorpay>=1.4",
+    "django-cors-headers>=4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.9",
+    "factory_boy>=3.3",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "django-stubs>=5.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+python_version = "3.11"
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.local"

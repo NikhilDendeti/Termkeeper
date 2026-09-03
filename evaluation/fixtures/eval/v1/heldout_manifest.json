@@ -1,0 +1,13 @@
+{
+  "dataset_version": "v1",
+  "heldout_engagement_ids": [
+    "synthetic-v1-006",
+    "synthetic-v1-010",
+    "synthetic-v1-013",
+    "synthetic-v1-020",
+    "synthetic-v1-028",
+    "synthetic-v1-031",
+    "synthetic-v1-033"
+  ],
+  "manifest_sha256": "8584b9e5c0b7f75fdceee74c16f0338547bd698664319849ee227973c1fdd6bb"
+}

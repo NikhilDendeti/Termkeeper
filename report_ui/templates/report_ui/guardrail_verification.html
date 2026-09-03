@@ -1,0 +1,39 @@
+{% extends "report_ui/base.html" %}
+
+{% block title %}Guardrail verification{% endblock %}
+
+{% block content %}
+<h1>Razorpay guardrail verification</h1>
+<p>
+  A live static scan of <code>razorpay_integration</code>'s production-path source files,
+  proving - rather than merely asserting - that the code path issues no write calls
+  (POST/PUT/PATCH/DELETE or an equivalent SDK write operation) against live Razorpay data.
+  This scan re-runs against the current state of the source on every page load.
+</p>
+
+<h2>Scanned files</h2>
+<ul class="scanned-files">
+  {% for file in result.scanned_files %}
+  <li><code>{{ file }}</code></li>
+  {% empty %}
+  <li class="empty-state">No files were scanned.</li>
+  {% endfor %}
+</ul>
+
+<h2>Result</h2>
+{% if result.passed %}
+  <p class="guardrail-result guardrail-pass">PASS &mdash; no write calls found in any scanned file.</p>
+{% else %}
+  <p class="guardrail-result guardrail-fail">
+    FAIL &mdash; {{ result.violations|length }} write-call violation(s) found:
+  </p>
+  <ul class="violations">
+    {% for violation in result.violations %}
+    <li class="violation">
+      <code>{{ violation.file }}:{{ violation.line }}</code>
+      &mdash; matched call <code>{{ violation.matched_call }}</code>
+    </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

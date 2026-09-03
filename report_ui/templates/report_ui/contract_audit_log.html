@@ -1,0 +1,45 @@
+{% extends "report_ui/base.html" %}
+{% load report_ui_extras %}
+
+{% block title %}Audit log{% endblock %}
+
+{% block content %}
+<h1>Audit log</h1>
+<p class="contract-meta">
+  Contract <code>{{ contract.id }}</code> &middot; Engagement {{ contract.engagement_id }}
+</p>
+
+<ol class="audit-entry-list">
+  {% for entry in entries %}
+  <li class="audit-entry" data-stage="{{ entry.stage }}">
+    <h3>Stage {{ entry.stage }} &mdash; {{ entry.get_stage_display }}</h3>
+
+    {% if entry.clause_id %}
+      <p class="entry-scope clause-scoped">
+        Clause-scoped: clause {{ entry.clause.sequence_index }} (<code>{{ entry.clause_id }}</code>)
+      </p>
+    {% else %}
+      <p class="entry-scope contract-level">Contract-level entry</p>
+    {% endif %}
+
+    <dl class="entry-metadata">
+      <dt>Prompt version</dt>
+      <dd>{{ entry.prompt_version }}</dd>
+      <dt>Model</dt>
+      <dd>{{ entry.model_name }}</dd>
+      <dt>Latency (ms)</dt>
+      <dd>{{ entry.latency_ms }}</dd>
+      <dt>Created at</dt>
+      <dd>{{ entry.created_at.isoformat }}</dd>
+    </dl>
+
+    <details class="raw-response-details">
+      <summary>Raw model response</summary>
+      <pre class="raw-response">{{ entry.llm_response_raw|pretty_json }}</pre>
+    </details>
+  </li>
+  {% empty %}
+  <li class="empty-state">No audit log entries found for this contract.</li>
+  {% endfor %}
+</ol>
+{% endblock %}

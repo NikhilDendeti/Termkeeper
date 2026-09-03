@@ -1,0 +1,26 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Report{% endblock %} — Payment Terms Analyzer</title>
+  <link rel="stylesheet" href="{% static 'report_ui/css/report.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <p class="site-title">Payment Terms &amp; Vendor Risk Analyzer — Report UI</p>
+      <nav class="site-nav" aria-label="Main">
+        {% if contract %}
+          <a href="{% url 'contract_report' contract_id=contract.id %}">Reasoning chain</a>
+          <a href="{% url 'contract_audit_log' contract_id=contract.id %}">Audit log</a>
+        {% endif %}
+        <a href="{% url 'guardrail_verification' %}">Guardrail verification</a>
+      </nav>
+    </div>
+  </header>
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

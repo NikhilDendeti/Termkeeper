@@ -1,0 +1,664 @@
+/* report_ui/static/report_ui/css/report.css
+ *
+ * Plain, hand-written CSS - no build step, no framework. See design.md
+ * (add-report-ui) - Decisions ("Static assets: plain CSS, no build step").
+ *
+ * Shares its design language (color, type, space, radius, shadow scale)
+ * with the React frontend's design system (frontend/src/index.css) so the
+ * two surfaces read as one product, using this app's own class names.
+ *
+ * `.needs-review` is deliberately never given a background/border color
+ * that appears in `.severity-*` below, so a needs-human-review item can
+ * never be mistaken for a scored severity by color alone - and every
+ * needs-review element also carries the literal text "Needs human review"
+ * in the markup (see templates), so the state is verifiable from text
+ * content alone even with this stylesheet stripped out entirely. It also
+ * carries no other class (see report_ui/tests/test_contract_report_view.py
+ * - `class="needs-review"` is asserted verbatim), so every visual rule for
+ * it must live under the bare `.needs-review` selector.
+ */
+
+:root {
+  color-scheme: light;
+
+  --color-primary: #3454d1;
+  --color-primary-hover: #2a44b0;
+
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f0f1f4;
+  --color-border: #e0e3e8;
+  --color-border-subtle: #eceef2;
+  --color-text: #14161c;
+  --color-text-muted: #565d6d;
+  /* 5.78:1 on white - WCAG AA for normal text (4.5:1); the app's original
+     #8a90a0 was 3.19:1, and this token lands on real content, not just
+     decoration. */
+  --color-text-faint: #5f6672;
+  --color-link: var(--color-primary);
+
+  --color-low: #157347;
+  --color-low-bg: #e4f7ec;
+  --color-low-border: #9fe0bd;
+  --color-medium: #8a6100;
+  --color-medium-bg: #fef3d6;
+  --color-medium-border: #f0cf7a;
+  --color-high: #a04a00;
+  --color-high-bg: #fde3cf;
+  --color-high-border: #f3ac6e;
+  --color-critical: #b3261e;
+  --color-critical-bg: #fbdede;
+  --color-critical-border: #f2a5a1;
+
+  --color-review: #5b21b6;
+  --color-review-bg-a: #f1eafd;
+  --color-review-bg-b: #e6d9fb;
+  --color-review-border: #c7b3f2;
+
+  --color-pass: #157347;
+  --color-pass-bg: #e4f7ec;
+  --color-pass-border: #9fe0bd;
+  --color-fail: #b3261e;
+  --color-fail-bg: #fbdede;
+  --color-fail-border: #f2a5a1;
+
+  --font-sans:
+    "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-xs: 0 1px 2px rgba(20, 22, 30, 0.05);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+
+  --container-max: 880px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-link);
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* --- App chrome ---------------------------------------------------------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.site-header-inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+  padding: var(--space-4) var(--space-6);
+}
+
+.site-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.site-nav a {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.site-main {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-6) 4rem;
+}
+
+h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+h2 {
+  margin: 0 0 var(--space-3);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+h3 {
+  margin: 0 0 var(--space-1);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.contract-meta {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 var(--space-6);
+}
+
+.contract-meta code {
+  color: var(--color-text-faint);
+}
+
+/* --- Cards ----------------------------------------------------------------- */
+
+.report-summary,
+.clause-entry,
+.audit-entry {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.report-summary {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.report-summary h2 {
+  margin-top: 0;
+}
+
+.report-summary p {
+  margin: 0 0 var(--space-1);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.report-summary p:last-child {
+  margin-bottom: 0;
+}
+
+.report-summary strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Reasoning chain ------------------------------------------------------- */
+
+.clause-list,
+.audit-entry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.clause-entry {
+  margin-bottom: var(--space-3);
+  overflow: hidden;
+}
+
+.clause-entry > details > summary {
+  cursor: pointer;
+  padding: var(--space-4) var(--space-5);
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  list-style: none;
+}
+
+.clause-entry > details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.clause-entry > details > summary:hover {
+  background: var(--color-surface-raised);
+}
+
+.clause-index {
+  color: var(--color-text-faint);
+  font-weight: 400;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.clause-type {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.15rem var(--space-3);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.clause-type.empty-state {
+  font-weight: 400;
+  font-style: italic;
+}
+
+.reasoning-chain {
+  padding: 0 var(--space-5) var(--space-5);
+  background: var(--color-surface-raised);
+  border-top: 1px solid var(--color-border);
+}
+
+.reasoning-stage {
+  border-top: 1px dashed var(--color-border);
+  padding: var(--space-4) 0;
+}
+
+.reasoning-stage:first-child {
+  border-top: none;
+}
+
+.reasoning-stage h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--color-text-faint);
+}
+
+.clause-text {
+  white-space: pre-wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+}
+
+.rationale {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  margin-top: var(--space-2);
+}
+
+.verbatim-span {
+  font-family: var(--font-mono);
+}
+
+.confidence {
+  color: var(--color-text-faint);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+  color: var(--color-text-faint);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.extracted-term-list,
+.mismatch-flag-list,
+.verified-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.extracted-term,
+.mismatch-flag {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.88rem;
+}
+
+/* --- Confirmed platform evidence ----------------------------------------
+ * Distinct from both `.mismatch-flag` (neutral card) and `.needs-review`
+ * (violet, dashed) - uses the same green already established by
+ * `.guardrail-pass` for "this checked out", so "confirmed" reads as one
+ * consistent success signal across the app rather than inventing a new
+ * color. Conveyed by the literal text "Confirmed - matches platform data"
+ * as well as color, same accessibility rationale as `.needs-review` (see
+ * file header). See specs/reporting/confirmed-platform-evidence/spec.md
+ * (add-confirmed-platform-evidence).
+ */
+
+.confirmed-evidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--color-pass-border);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem var(--space-3);
+  color: var(--color-pass);
+  background: var(--color-pass-bg);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.confirmed-evidence::before {
+  content: "\2713";
+  font-size: 0.95em;
+}
+
+.verified-record {
+  background: var(--color-surface);
+  border: 1px solid var(--color-pass-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.88rem;
+}
+
+.record-summary {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.suggested-rewrite {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-surface);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 0.88rem;
+}
+
+/* --- Scored-severity treatment ---------------------------------------- */
+
+.severity-low,
+.severity-medium,
+.severity-high,
+.severity-critical {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.severity-low {
+  border-left: 4px solid var(--color-low);
+  background: var(--color-low-bg);
+}
+
+.severity-medium {
+  border-left: 4px solid var(--color-medium);
+  background: var(--color-medium-bg);
+}
+
+.severity-high {
+  border-left: 4px solid var(--color-high);
+  background: var(--color-high-bg);
+}
+
+.severity-critical {
+  border-left: 4px solid var(--color-critical);
+  background: var(--color-critical-bg);
+}
+
+/* --- needs-human-review treatment --------------------------------------
+ * Distinct shape (dashed border + diagonal stripe fill, not a solid left
+ * border), distinct color (violet, unused by any severity above), and a
+ * leading glyph - on top of the literal "Needs human review" text every
+ * instance of this class always wraps. Kept to a SINGLE class
+ * (`class="needs-review"`, no companions) - see file header.
+ */
+
+.needs-review {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 2px dashed var(--color-review);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem var(--space-3);
+  color: var(--color-review);
+  font-weight: 700;
+  font-size: 0.85rem;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-review-bg-a),
+    var(--color-review-bg-a) 6px,
+    var(--color-review-bg-b) 6px,
+    var(--color-review-bg-b) 12px
+  );
+}
+
+.needs-review::before {
+  content: "\26A0\FE0E";
+  font-size: 0.95em;
+}
+
+/* --- Audit log ---------------------------------------------------------- */
+
+.audit-entry {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+.audit-entry h3 {
+  margin-top: 0;
+}
+
+.entry-scope {
+  font-size: 0.88rem;
+  margin: 0 0 var(--space-3);
+}
+
+.entry-scope.contract-level {
+  color: var(--color-text-muted);
+}
+
+.entry-scope code {
+  color: var(--color-text-faint);
+}
+
+.entry-metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-sm);
+}
+
+.entry-metadata dt {
+  grid-row: 1;
+  color: var(--color-text-faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.entry-metadata dd {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.raw-response-details {
+  margin-top: var(--space-2);
+}
+
+.raw-response-details summary {
+  cursor: pointer;
+  display: inline-block;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem var(--space-3);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.raw-response-details summary:hover {
+  border-color: var(--color-text-faint);
+  color: var(--color-text);
+}
+
+.raw-response {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+/* --- Guardrail verification --------------------------------------------- */
+
+.scanned-files,
+.violations {
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scanned-files li {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-sm);
+}
+
+.violations li {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-fail-border);
+  background: var(--color-fail-bg);
+  color: var(--color-fail);
+  font-size: 0.88rem;
+}
+
+.scanned-files code,
+.violations code {
+  font-family: var(--font-mono);
+}
+
+.violations code {
+  font-weight: 600;
+  color: inherit;
+}
+
+.guardrail-result {
+  font-weight: 700;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 1.02rem;
+  border: 1px solid transparent;
+  margin-bottom: var(--space-6);
+}
+
+.guardrail-pass {
+  color: var(--color-pass);
+  background: var(--color-pass-bg);
+  border-color: var(--color-pass-border);
+}
+
+.guardrail-fail {
+  color: var(--color-fail);
+  background: var(--color-fail-bg);
+  border-color: var(--color-fail-border);
+}
+
+/* --- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .site-header-inner {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .site-main {
+    padding: var(--space-6) var(--space-4) 3rem;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+  }
+
+  .clause-entry > details > summary,
+  .reasoning-chain,
+  .audit-entry {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .entry-metadata {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.001ms !important;
+  }
+}
