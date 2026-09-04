@@ -26,3 +26,15 @@ DATABASES = {
 CORS_ALLOWED_ORIGINS = [
     origin for origin in os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "").split(",") if origin
 ]
+
+# Manifest-hashed, pre-compressed static files, served by WhiteNoiseMiddleware
+# straight from the app process - no separate static host needed on Railway.
+# Requires collectstatic to have already run (see Procfile's release phase);
+# kept out of base.py because it raises on any file missing from the
+# manifest, which breaks template-rendering tests that never run
+# collectstatic first.
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}

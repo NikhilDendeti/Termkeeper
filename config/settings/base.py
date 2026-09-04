@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -100,7 +101,15 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files
+# Static files - WhiteNoiseMiddleware (added above) serves report_ui's CSS
+# directly from the app process in production (Railway etc.), where Django
+# itself does not serve /static/ once DEBUG=False. The manifest-hashed
+# CompressedManifestStaticFilesStorage backend lives in production.py only,
+# not here - it requires collectstatic to have already run and raises if a
+# file isn't in its manifest, which breaks every template-rendering test
+# (they never run collectstatic first). Local dev/tests keep Django's
+# default staticfiles storage, which resolves {% static %} tags directly
+# against STATIC_ROOT/app static dirs with no manifest required.
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
