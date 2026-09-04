@@ -109,7 +109,7 @@ export default function AboutPage() {
     <>
       <div className="page-header">
         <div className="page-header-text">
-          <h1 className="page-title">About ContractGuard</h1>
+          <h1 className="page-title">About Termkeeper</h1>
           <p className="page-subtitle">
             An AI Payment Terms &amp; Vendor Risk Analyzer, built for the Razorpay AI Buildathon
             (Open Track).
@@ -118,7 +118,7 @@ export default function AboutPage() {
       </div>
 
       <p className="about-lede">
-        ContractGuard reads a vendor or subscription contract, extracts what it actually promises
+        Termkeeper reads a vendor or subscription contract, extracts what it actually promises
         about payment, and checks those promises against what Razorpay's own data says is
         happening - then scores the gap. Every number on this page was verified by running the
         project's real test suites and reading its real spec history, not recalled from memory.

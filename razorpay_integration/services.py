@@ -2,12 +2,16 @@
 
 This app implements pipeline stage 4: cross-checking phase 1's
 `ExtractedTerm` rows against real Razorpay platform evidence. Every write
-(`PlatformRecord`, `MismatchFlag`, `AuditLogEntry`) goes through a function
-here. `detect_mismatches` reads its inputs via selectors (this app's own,
-`contracts.selectors`, and `pipeline.selectors`), never via an in-process
-value handed from an earlier pipeline stage - the same no-in-memory-handoff
-rule phase 1 established for stages 1-3. See design.md
-(add-razorpay-crosscheck) - Context and Decisions.
+(`PlatformRecord`, `MismatchFlag`) goes through a function here;
+`AuditLogEntry` writes route through the one shared
+`pipeline.services.create_audit_log_entry` - see
+openspec/changes/add-audit-log-hash-chain/design.md (this app no longer
+defines its own `_create_audit_log_entry`). `detect_mismatches` reads its
+inputs via selectors (this app's own, `contracts.selectors`, and
+`pipeline.selectors`), never via an in-process value handed from an earlier
+pipeline stage - the same no-in-memory-handoff rule phase 1 established for
+stages 1-3. See design.md (add-razorpay-crosscheck) - Context and
+Decisions.
 
 Mismatch *existence* and *type* are always decided by deterministic code
 comparison before any LLM call - `core.llm_client` is used only to
@@ -35,7 +39,8 @@ from contracts import selectors as contracts_selectors
 from contracts.models import Clause, Contract, RazorpayReferenceType
 from core import llm_client
 from pipeline import selectors as pipeline_selectors
-from pipeline.models import AuditLogEntry, ExtractedTerm, TermType
+from pipeline import services as pipeline_services
+from pipeline.models import ExtractedTerm, TermType
 from razorpay_integration import selectors as razorpay_selectors
 from razorpay_integration.client import RazorpayConnector
 from razorpay_integration.models import (
@@ -599,10 +604,13 @@ def _generate_mismatch_description(
             verified = True
             break
 
-    _create_audit_log_entry(
+    pipeline_services.create_audit_log_entry(
         contract=contract,
         clause=clause,
+        stage=_STAGE_4,
+        prompt_version=_MISMATCH_DESCRIPTION_PROMPT_VERSION,
         llm_response_raw=result,
+        model_name=settings.OPENAI_MODEL,
         latency_ms=total_latency_ms,
     )
 
@@ -679,26 +687,6 @@ def _create_trigger_condition_unverifiable_flag(*, extracted_term: ExtractedTerm
         expected_value=extracted_term.value_structured,
         actual_value={},
         description=description,
-    )
-
-
-def _create_audit_log_entry(
-    *, contract: Contract, clause: Clause, llm_response_raw: dict[str, Any], latency_ms: int
-) -> AuditLogEntry:
-    """Persist the AuditLogEntry(stage=4) each description-generation call writes.
-
-    Reuses phase 1's AuditLogEntry model verbatim - see task 6.4 and
-    proposal.md - Impact ("AuditLogEntry.stage is already an unconstrained
-    int, so stage=4 is additive by construction").
-    """
-    return AuditLogEntry.objects.create(
-        contract=contract,
-        clause=clause,
-        stage=_STAGE_4,
-        prompt_version=_MISMATCH_DESCRIPTION_PROMPT_VERSION,
-        llm_response_raw=llm_response_raw,
-        model_name=settings.OPENAI_MODEL,
-        latency_ms=latency_ms,
     )
 
 

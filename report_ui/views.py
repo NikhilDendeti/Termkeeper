@@ -37,21 +37,37 @@ def contract_report_view(request: HttpRequest, contract_id: uuid.UUID) -> HttpRe
     return render(
         request,
         "report_ui/contract_report.html",
-        {"contract": contract, "report": report, "clause_chains": clause_chains},
+        {
+            "contract": contract,
+            "report": report,
+            "clause_chains": clause_chains,
+            "active_nav": "report",
+        },
     )
 
 
 def contract_audit_log_view(request: HttpRequest, contract_id: uuid.UUID) -> HttpResponse:
     """Render a contract's complete audit trail, in stage order.
 
-    See specs/report-ui/audit-log-view/spec.md.
+    Also renders this contract's hash-chain integrity result - the exact
+    same `reporting.selectors.verify_audit_chain(contract=...)` the
+    `verify_audit_chain` CLI command calls, so no separate "is this
+    trustworthy" logic is duplicated between the page and the command. See
+    specs/report-ui/audit-log-view/spec.md and
+    openspec/changes/add-audit-log-hash-chain/design.md ("UI touch").
     """
     contract = _get_contract_or_404(contract_id)
     entries = pipeline_selectors.get_audit_trail(contract=contract)
+    chain_result = reporting_selectors.verify_audit_chain(contract=contract)
     return render(
         request,
         "report_ui/contract_audit_log.html",
-        {"contract": contract, "entries": entries},
+        {
+            "contract": contract,
+            "entries": entries,
+            "chain_result": chain_result,
+            "active_nav": "audit_log",
+        },
     )
 
 
@@ -61,4 +77,8 @@ def guardrail_verification_view(request: HttpRequest) -> HttpResponse:
     See specs/report-ui/guardrail-verification-view/spec.md.
     """
     result = reporting_selectors.scan_razorpay_guardrail()
-    return render(request, "report_ui/guardrail_verification.html", {"result": result})
+    return render(
+        request,
+        "report_ui/guardrail_verification.html",
+        {"result": result, "active_nav": "guardrail"},
+    )

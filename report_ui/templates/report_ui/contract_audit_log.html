@@ -9,6 +9,40 @@
   Contract <code>{{ contract.id }}</code> &middot; Engagement {{ contract.engagement_id }}
 </p>
 
+<h2>Chain integrity</h2>
+<p>
+  A live recomputation of this contract's AuditLogEntry hash chain, proving -
+  rather than merely asserting - that no entry was edited or deleted after it
+  was written. Recomputed on every page load via the same
+  <code>verify_audit_chain</code> function the CLI command uses.
+</p>
+{% if chain_result.passed %}
+  <p class="guardrail-result guardrail-pass">
+    Chain integrity: PASS &mdash; {{ chain_result.entries_verified }} entr{{ chain_result.entries_verified|pluralize:"y,ies" }} verified, no breaks found.
+  </p>
+{% else %}
+  <p class="guardrail-result guardrail-fail">
+    Chain integrity: {{ chain_result.breaks|length }} break(s) found.
+  </p>
+  <ul class="violations">
+    {% for chain_break in chain_result.breaks %}
+    <li class="violation">
+      chain_sequence <code>{{ chain_break.chain_sequence }}</code>
+      &mdash; entry <code>{{ chain_break.entry_id }}</code>
+      &mdash; {{ chain_break.reason }}
+    </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% if chain_result.entries_exempt %}
+  <p class="chain-exempt-note">
+    {{ chain_result.entries_exempt }} entr{{ chain_result.entries_exempt|pluralize:"y,ies" }}
+    predate hash-chain verification and are chain-exempt - not counted as
+    verified or as broken.
+  </p>
+{% endif %}
+
+<h2>Entries</h2>
 <ol class="audit-entry-list">
   {% for entry in entries %}
   <li class="audit-entry" data-stage="{{ entry.stage }}">

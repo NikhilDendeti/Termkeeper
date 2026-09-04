@@ -22,6 +22,8 @@ from contracts import selectors as contracts_selectors
 from contracts import services as contracts_services
 from contracts.models import Clause, ClauseType, Contract
 from core import llm_client
+from core.audit_hash import GENESIS_PREV_HASH, compute_entry_hash
+from pipeline import selectors as pipeline_selectors
 from pipeline.models import AuditLogEntry, ExtractedTerm, PipelineStage, TermType
 
 logger = logging.getLogger(__name__)
@@ -96,12 +98,13 @@ def segment_contract(*, contract: Contract) -> list[Clause]:
         if all_verbatim:
             break
 
-    _create_audit_log_entry(
+    create_audit_log_entry(
         contract=contract,
         clause=None,
         stage=PipelineStage.SEGMENTATION,
         prompt_version=_SEGMENTATION_PROMPT_VERSION,
         llm_response_raw=result,
+        model_name=settings.OPENAI_MODEL,
         latency_ms=total_latency_ms,
     )
 
@@ -207,12 +210,13 @@ def classify_clause(*, clause: Clause) -> Clause:
         update_fields=["clause_type", "classification_confidence", "classification_rationale"]
     )
 
-    _create_audit_log_entry(
+    create_audit_log_entry(
         contract=clause.contract,
         clause=clause,
         stage=PipelineStage.CLASSIFICATION,
         prompt_version=_CLASSIFICATION_PROMPT_VERSION,
         llm_response_raw=result,
+        model_name=settings.OPENAI_MODEL,
         latency_ms=latency_ms,
     )
 
@@ -341,12 +345,13 @@ def extract_terms(*, clause: Clause) -> list[ExtractedTerm]:
                 )
             )
 
-    _create_audit_log_entry(
+    create_audit_log_entry(
         contract=clause.contract,
         clause=clause,
         stage=PipelineStage.EXTRACTION,
         prompt_version=_EXTRACTION_PROMPT_VERSION,
         llm_response_raw=result,
+        model_name=settings.OPENAI_MODEL,
         latency_ms=latency_ms,
     )
 
@@ -441,26 +446,69 @@ def run_pipeline(*, contract: Contract, from_stage: int = 1) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _create_audit_log_entry(
+def create_audit_log_entry(
     *,
     contract: Contract,
     clause: Clause | None,
     stage: int,
     prompt_version: str,
     llm_response_raw: dict[str, Any],
+    model_name: str,
     latency_ms: int,
 ) -> AuditLogEntry:
-    """Persist the one AuditLogEntry every stage invocation writes.
+    """Persist one AuditLogEntry, hash-chained to `contract`'s prior entry.
 
-    See specs/pipeline/audit-trail/spec.md (One audit entry per stage
-    invocation).
+    This is the *only* place `AuditLogEntry.objects.create(...)` is called
+    anywhere in the codebase - every real call site (stages 1-3 above,
+    `razorpay_integration.services._generate_mismatch_description` for
+    stage 4, `risk_scoring.services.score_clause` for stage 5) routes
+    through this one function, so the hash-chain logic (and the plain
+    fields it wraps) can never drift between stages. See
+    openspec/changes/add-audit-log-hash-chain/design.md (Decision 3) and
+    specs/pipeline/audit-log-integrity/spec.md.
+
+    The chain is scoped per-Contract (never global - see design.md
+    Decision 1): `pipeline.selectors.get_chain_tip` looks up the current
+    end of `contract`'s chain under `select_for_update()`, and the whole
+    tip-lookup + create + hash + save sequence runs inside one
+    `transaction.atomic()` block, so two concurrent writers for the same
+    contract cannot both compute the same tip and produce a forked chain.
+    `entry_hash` is computed only after the row is created (a second
+    `save(update_fields=["entry_hash"])`), because `entry.id` and
+    `entry.created_at` are only reliably known once the row exists - so no
+    reader ever observes a persisted row with `prev_hash`/`chain_sequence`
+    set but `entry_hash` still null, since both steps share one
+    transaction.
     """
-    return AuditLogEntry.objects.create(
-        contract=contract,
-        clause=clause,
-        stage=stage,
-        prompt_version=prompt_version,
-        llm_response_raw=llm_response_raw,
-        model_name=settings.OPENAI_MODEL,
-        latency_ms=latency_ms,
-    )
+    with transaction.atomic():
+        tip = pipeline_selectors.get_chain_tip(contract=contract)
+        if tip is None:
+            prev_hash = GENESIS_PREV_HASH
+            chain_sequence = 1
+        else:
+            # `get_chain_tip` only ever returns a row with a non-null
+            # `entry_hash`, and `create_audit_log_entry` never persists
+            # `entry_hash` without also persisting `chain_sequence` in the
+            # same transaction - so both are guaranteed non-null here, even
+            # though the model fields are nullable for chain-exempt rows.
+            assert tip.entry_hash is not None
+            assert tip.chain_sequence is not None
+            prev_hash = tip.entry_hash
+            chain_sequence = tip.chain_sequence + 1
+
+        entry = AuditLogEntry.objects.create(
+            contract=contract,
+            clause=clause,
+            stage=stage,
+            prompt_version=prompt_version,
+            llm_response_raw=llm_response_raw,
+            model_name=model_name,
+            latency_ms=latency_ms,
+            prev_hash=prev_hash,
+            chain_sequence=chain_sequence,
+        )
+
+        entry.entry_hash = compute_entry_hash(entry)
+        entry.save(update_fields=["entry_hash"])
+
+    return entry

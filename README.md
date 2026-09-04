@@ -50,7 +50,7 @@ Six stages, each a small, tested service function:
 ## Tech stack
 
 - **Backend:** Django + Django REST Framework, SQLite, OpenAI (Responses API, structured JSON-schema output) called through one shared wrapper, `core/llm_client.py` — every pipeline stage goes through it, nothing calls the OpenAI SDK directly.
-- **Frontend:** React + TypeScript + Vite ("ContractGuard"), calling the backend over a CORS-enabled JSON API. Lives in [`frontend/`](frontend/) as a wholly separate project — its own `package.json`, its own dependency tree.
+- **Frontend:** React + TypeScript + Vite ("Termkeeper"), calling the backend over a CORS-enabled JSON API. Lives in [`frontend/`](frontend/) as a wholly separate project — its own `package.json`, its own dependency tree.
 - **Second UI:** a simpler, server-rendered Django-templates report viewer in [`report_ui/`](report_ui/) (see [Two UIs](#two-uis-and-why-both-exist) below).
 - **Dev tooling:** pytest + pytest-django + factory_boy (backend), Vitest + Testing Library (frontend), ruff + mypy (backend linting/typing).
 

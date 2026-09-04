@@ -11,6 +11,7 @@ from django.urls import reverse
 from contracts.models import RazorpayReferenceType
 from contracts.tests.factories import ClauseFactory, ContractFactory
 from pipeline.models import TermType
+from pipeline.services import create_audit_log_entry
 from pipeline.tests.factories import AuditLogEntryFactory, ExtractedTermFactory
 from razorpay_integration.models import PlatformRecordType
 from razorpay_integration.tests.factories import MismatchFlagFactory, PlatformRecordFactory
@@ -139,6 +140,42 @@ class TestContractAuditTrailAPIView:
         response = client.get(url)
 
         assert response.status_code == 404
+
+    def test_hash_chain_fields_appear_in_the_live_response(self, client):
+        """Task 8.4 / spec: pipeline/audit-log-integrity."""
+        contract = ContractFactory()
+        entry = create_audit_log_entry(
+            contract=contract,
+            clause=None,
+            stage=1,
+            prompt_version="v1",
+            llm_response_raw={"ok": True},
+            model_name="test-model",
+            latency_ms=1,
+        )
+
+        url = reverse("contract-audit-trail", kwargs={"contract_id": contract.id})
+        response = client.get(url)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 1
+        assert body[0]["prev_hash"] == entry.prev_hash
+        assert body[0]["entry_hash"] == entry.entry_hash
+        assert body[0]["chain_sequence"] == entry.chain_sequence
+
+    def test_exempt_entry_serializes_hash_chain_fields_as_null(self, client):
+        contract = ContractFactory()
+        AuditLogEntryFactory(contract=contract, stage=1)
+
+        url = reverse("contract-audit-trail", kwargs={"contract_id": contract.id})
+        response = client.get(url)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body[0]["prev_hash"] is None
+        assert body[0]["entry_hash"] is None
+        assert body[0]["chain_sequence"] is None
 
 
 class TestUrlsResolve:

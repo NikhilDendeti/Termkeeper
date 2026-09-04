@@ -263,3 +263,72 @@ class TestAuditLogEntryPersistedForEachDescriptionCall:
         _run_payout_crosscheck(contract=contract)
 
         assert AuditLogEntry.objects.filter(contract=contract, stage=4).count() == 0
+
+
+class TestNoDuplicateAuditLogWriteHelper:
+    """Task 4.2: this module must not define its own `_create_audit_log_entry`.
+
+    Every AuditLogEntry write routes through the one shared
+    `pipeline.services.create_audit_log_entry` - see design.md
+    (add-audit-log-hash-chain) - Risks ("any future edit ... that bypasses
+    pipeline.services.create_audit_log_entry ... silently breaks the
+    tamper-evidence guarantee without any test failing loudly"). This test
+    exists so a future reintroduction of a duplicate write path fails
+    loudly instead.
+    """
+
+    def test_razorpay_integration_services_has_no_private_audit_log_helper(self):
+        import razorpay_integration.services as razorpay_integration_services
+
+        assert not hasattr(razorpay_integration_services, "_create_audit_log_entry")
+
+
+class TestStage4AuditLogEntryChainsCorrectly:
+    """Task 4.3 / spec: Every stage's write populates the chain fields."""
+
+    @override_settings(CADENCE_MISMATCH_TOLERANCE_RATIO=0.2, AMOUNT_MISMATCH_TOLERANCE_PCT=0.05)
+    @patch("core.llm_client.get_structured_completion")
+    def test_stage_4_entry_has_a_non_null_hash_chained_from_the_prior_entry(
+        self, mock_completion
+    ):
+        from core.audit_hash import GENESIS_PREV_HASH, compute_entry_hash
+        from pipeline.services import create_audit_log_entry
+
+        mock_completion.return_value = {
+            "description": "Contract states monthly, but Payout history shows weekly.",
+            "expected_quote": "paid every 1 month",
+            "actual_quote": '"amount": 1',
+        }
+        contract = ContractFactory(razorpay_reference_type=RazorpayReferenceType.PAYOUT)
+        clause = ClauseFactory(contract=contract)
+        ExtractedTermFactory(
+            clause=clause,
+            term_type=TermType.PAYOUT_FREQUENCY,
+            value_raw="paid every 1 month",
+            value_structured={"numeric_value": 1, "unit": "month"},
+        )
+        PlatformRecordFactory(contract=contract, razorpay_created_at=_EPOCH, payload={"amount": 1})
+        PlatformRecordFactory(
+            contract=contract, razorpay_created_at=_EPOCH + timedelta(days=7), payload={"amount": 1}
+        )
+
+        # This contract's stage 1-3 entry, written before stage 4 runs, so
+        # stage 4's entry is expected to chain from it (not from genesis).
+        stage_1_entry = create_audit_log_entry(
+            contract=contract,
+            clause=None,
+            stage=1,
+            prompt_version="clause-segmentation-v1",
+            llm_response_raw={"clauses": []},
+            model_name="test-model",
+            latency_ms=1,
+        )
+
+        _run_payout_crosscheck(contract=contract)
+
+        stage_4_entry = AuditLogEntry.objects.get(contract=contract, stage=4)
+        assert stage_4_entry.entry_hash is not None
+        assert stage_4_entry.entry_hash == compute_entry_hash(stage_4_entry)
+        assert stage_4_entry.prev_hash == stage_1_entry.entry_hash
+        assert stage_4_entry.prev_hash != GENESIS_PREV_HASH
+        assert stage_4_entry.chain_sequence == stage_1_entry.chain_sequence + 1

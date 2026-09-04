@@ -15,7 +15,7 @@ function renderPage() {
 describe("AboutPage", () => {
   it("renders the page title and a one-line product summary", () => {
     renderPage();
-    expect(screen.getByRole("heading", { level: 1, name: "About ContractGuard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "About Termkeeper" })).toBeInTheDocument();
     expect(screen.getByText(/Razorpay AI Buildathon/i)).toBeInTheDocument();
   });
 

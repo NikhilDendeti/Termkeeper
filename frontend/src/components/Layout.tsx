@@ -22,7 +22,7 @@ const ROUTE_TITLES: Record<string, string> = {
 function pageTitleForPath(pathname: string): string {
   if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
   if (pathname.startsWith("/contracts/")) return "Contract detail";
-  return "ContractGuard";
+  return "Termkeeper";
 }
 
 /**
@@ -32,7 +32,7 @@ function pageTitleForPath(pathname: string): string {
  * Also owns two pieces of cross-page a11y state a React SPA doesn't get for
  * free: the document title (never updated per route otherwise, so the
  * browser tab and screen-reader page announcement stayed frozen on
- * "ContractGuard" for all six routes) and focus on route change (moved to
+ * "Termkeeper" for all six routes) and focus on route change (moved to
  * <main> so keyboard/screen-reader users get the same "landed somewhere new"
  * signal a full page navigation would give them).
  */
@@ -41,7 +41,7 @@ export default function Layout() {
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    document.title = `${pageTitleForPath(location.pathname)} · ContractGuard`;
+    document.title = `${pageTitleForPath(location.pathname)} · Termkeeper`;
     // Reset scroll explicitly rather than letting focus() do it - the
     // default scroll-into-view on focus() aligns <main>'s top edge with the
     // viewport top, which would tuck it behind the sticky header instead.
@@ -55,7 +55,7 @@ export default function Layout() {
         <div className="app-header-inner">
           <NavLink to="/" end className="app-brand">
             <Icon name="shield-check" size={20} className="app-brand-icon" />
-            Contract<span className="app-brand-mark">Guard</span>
+            Term<span className="app-brand-mark">keeper</span>
           </NavLink>
           <nav className="app-nav" aria-label="Main">
             <NavLink to="/" end className={navLinkClassName}>

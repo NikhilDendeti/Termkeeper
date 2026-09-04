@@ -1,4 +1,4 @@
-# ContractGuard frontend
+# Termkeeper frontend
 
 A standalone Vite + React + TypeScript app that talks to the Django backend
 (`reporting` app's JSON API) exclusively over HTTP. No server-side

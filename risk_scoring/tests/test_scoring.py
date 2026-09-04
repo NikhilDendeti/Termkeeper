@@ -266,3 +266,95 @@ class TestScoreClauseIsIdempotentPerClause:
         assert first.id == second.id
         assert RiskAssessment.objects.filter(clause=clause).count() == 1
         assert RiskAssessment.objects.get(clause=clause).asymmetry_score == 0.9
+
+
+class TestNoDuplicateAuditLogWriteHelper:
+    """Task 5.2: this module must not define its own `_create_audit_log_entry`.
+
+    Mirrors razorpay_integration's test of the same shape - every
+    AuditLogEntry write routes through the one shared
+    `pipeline.services.create_audit_log_entry`. See design.md
+    (add-audit-log-hash-chain) - Risks.
+    """
+
+    def test_risk_scoring_services_has_no_private_audit_log_helper(self):
+        import risk_scoring.services as risk_scoring_services
+
+        assert not hasattr(risk_scoring_services, "_create_audit_log_entry")
+
+
+class TestStage5AuditLogEntryChainsCorrectly:
+    """Task 5.3 / spec: Every stage's write populates the chain fields."""
+
+    def test_short_circuit_path_entry_chains_from_the_contracts_prior_entry(self):
+        from core.audit_hash import compute_entry_hash
+        from pipeline.services import create_audit_log_entry
+
+        clause = ClauseFactory(clause_type=None, clause_text=CLAUSE_TEXT)
+        prior = create_audit_log_entry(
+            contract=clause.contract,
+            clause=None,
+            stage=1,
+            prompt_version="clause-segmentation-v1",
+            llm_response_raw={"clauses": []},
+            model_name="test-model",
+            latency_ms=1,
+        )
+
+        score_clause(clause=clause)
+
+        stage_5_entry = AuditLogEntry.objects.get(contract=clause.contract, stage=5)
+        assert stage_5_entry.entry_hash is not None
+        assert stage_5_entry.entry_hash == compute_entry_hash(stage_5_entry)
+        assert stage_5_entry.prev_hash == prior.entry_hash
+        assert stage_5_entry.chain_sequence == prior.chain_sequence + 1
+
+    @patch("core.llm_client.get_structured_completion")
+    def test_main_path_entry_chains_from_the_contracts_prior_entry(self, mock_completion):
+        from core.audit_hash import compute_entry_hash
+        from pipeline.services import create_audit_log_entry
+
+        mock_completion.return_value = _grounded_response(asymmetry_score=0.6)
+        clause = ClauseFactory(clause_type=ClauseType.TERMINATION.value, clause_text=CLAUSE_TEXT)
+        prior = create_audit_log_entry(
+            contract=clause.contract,
+            clause=None,
+            stage=1,
+            prompt_version="clause-segmentation-v1",
+            llm_response_raw={"clauses": []},
+            model_name="test-model",
+            latency_ms=1,
+        )
+
+        score_clause(clause=clause)
+
+        stage_5_entry = AuditLogEntry.objects.get(contract=clause.contract, stage=5)
+        assert stage_5_entry.entry_hash is not None
+        assert stage_5_entry.entry_hash == compute_entry_hash(stage_5_entry)
+        assert stage_5_entry.prev_hash == prior.entry_hash
+        assert stage_5_entry.chain_sequence == prior.chain_sequence + 1
+
+    def test_stage_5_first_hashed_entry_for_a_contract_with_exempt_prior_entries(self):
+        """A contract whose stage 1-4 entries pre-date this capability (exempt,
+        null-hash) and whose first-ever hashed entry is stage 5's - the chain
+        must start from genesis at that entry, not treat the exempt entries as
+        part of the chain. Spec: A mixed contract's chain begins at its first
+        hashed entry.
+        """
+        from core.audit_hash import GENESIS_PREV_HASH, compute_entry_hash
+        from pipeline.tests.factories import AuditLogEntryFactory
+
+        clause = ClauseFactory(clause_type=None, clause_text=CLAUSE_TEXT)
+        # Exempt (pre-existing, null-hash) entries for stages 1-4 - as if
+        # this contract was fully processed before hash-chain verification
+        # existed, and is now merely being (re-)scored for stage 5.
+        for stage in (1, 2, 3, 4):
+            AuditLogEntryFactory(contract=clause.contract, stage=stage)
+
+        score_clause(clause=clause)
+
+        stage_5_entry = AuditLogEntry.objects.get(contract=clause.contract, stage=5)
+        assert stage_5_entry.entry_hash is not None
+        assert stage_5_entry.entry_hash == compute_entry_hash(stage_5_entry)
+        assert stage_5_entry.prev_hash == GENESIS_PREV_HASH
+        assert stage_5_entry.chain_sequence == 1

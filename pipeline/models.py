@@ -70,6 +70,20 @@ class AuditLogEntry(models.Model):
     `clause` is null for a contract-level invocation (stage 1, segmentation
     is not scoped to a single clause) and set for a clause-level invocation
     (stages 2 and 3). See specs/pipeline/audit-trail/spec.md.
+
+    `prev_hash`, `entry_hash`, and `chain_sequence` implement a per-Contract
+    tamper-evident hash chain - see
+    openspec/changes/add-audit-log-hash-chain/design.md (Decision 3).
+    `chain_sequence` is the authoritative write-order key (not `created_at`,
+    whose microsecond resolution is not a rigorous ordering guarantee, and
+    not `id`, a random UUID4). A null triple (`prev_hash`, `entry_hash`,
+    `chain_sequence` all `None`) means this row was written before hash-chain
+    verification existed - it is chain-exempt, not verified and not broken;
+    see design.md (Decision 2) and
+    specs/pipeline/audit-log-integrity/spec.md (Requirement: Pre-existing
+    entries are explicit chain-exempt, never silently counted as verified).
+    Every row created via `pipeline.services.create_audit_log_entry` after
+    this capability shipped has all three fields populated.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -89,6 +103,9 @@ class AuditLogEntry(models.Model):
     model_name = models.CharField(max_length=128)
     latency_ms = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+    prev_hash = models.CharField(max_length=64, null=True, blank=True)
+    entry_hash = models.CharField(max_length=64, null=True, blank=True)
+    chain_sequence = models.PositiveBigIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["stage", "created_at"]

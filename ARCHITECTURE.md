@@ -1,4 +1,4 @@
-# ContractGuard Architecture
+# Termkeeper Architecture
 
 **AI Payment Terms & Vendor Risk Analyzer — Razorpay AI Buildathon (Open Track)**
 
@@ -305,7 +305,7 @@ deliberate reversal, not an oversight:
   dev server. Built first (`add-report-ui`); it's still the reference
   implementation for what the reasoning chain, audit log, and guardrail view
   should show.
-- **`frontend`** — React + TypeScript + Vite ("ContractGuard"), its own dev
+- **`frontend`** — React + TypeScript + Vite ("Termkeeper"), its own dev
   server on `:5173`, calling the backend only over a CORS-enabled JSON API.
   Added later (`add-react-frontend`), once the project owner explicitly asked
   for a genuinely separate frontend/backend split.

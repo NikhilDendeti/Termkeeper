@@ -1,8 +1,11 @@
 """Write-path service functions for the `risk_scoring` app.
 
 This app implements pipeline stage 5: scoring every classified Clause for
-severity and directional asymmetry. Every write (`RiskAssessment`,
-`AuditLogEntry`) goes through a function here. `score_clause` reads its
+severity and directional asymmetry. Every write (`RiskAssessment`) goes
+through a function here; `AuditLogEntry` writes route through the one
+shared `pipeline.services.create_audit_log_entry` - see
+openspec/changes/add-audit-log-hash-chain/design.md (this app no longer
+defines its own `_create_audit_log_entry`). `score_clause` reads its
 inputs via selectors (this app's own and `risk_scoring.selectors`), never
 via an in-process value handed from an earlier pipeline stage - the same
 no-in-memory-handoff rule phase 1 established for stages 1-3 and phase 2
@@ -22,9 +25,9 @@ from typing import Any
 
 from django.conf import settings
 
-from contracts.models import Clause, ClauseType, Contract
+from contracts.models import Clause, ClauseType
 from core import llm_client
-from pipeline.models import AuditLogEntry
+from pipeline import services as pipeline_services
 from risk_scoring import selectors as risk_scoring_selectors
 from risk_scoring.models import RiskAssessment, SeverityChoices
 
@@ -161,14 +164,17 @@ def score_clause(*, clause: Clause) -> RiskAssessment:
     ]
 
     if clause.clause_type is None or clause.clause_type == ClauseType.NEEDS_HUMAN_REVIEW.value:
-        _create_audit_log_entry(
+        pipeline_services.create_audit_log_entry(
             contract=clause.contract,
             clause=clause,
+            stage=_STAGE_5,
+            prompt_version=_RISK_SCORING_PROMPT_VERSION,
             llm_response_raw={
                 "short_circuited": True,
                 "reason": "clause_type is needs_human_review or unset; scoring LLM not called",
                 "clause_type": clause.clause_type,
             },
+            model_name=settings.OPENAI_MODEL,
             latency_ms=0,
         )
         return _persist_risk_assessment(
@@ -203,10 +209,13 @@ def score_clause(*, clause: Clause) -> RiskAssessment:
         if verified:
             break
 
-    _create_audit_log_entry(
+    pipeline_services.create_audit_log_entry(
         contract=clause.contract,
         clause=clause,
+        stage=_STAGE_5,
+        prompt_version=_RISK_SCORING_PROMPT_VERSION,
         llm_response_raw=result,
+        model_name=settings.OPENAI_MODEL,
         latency_ms=total_latency_ms,
     )
 
@@ -275,23 +284,3 @@ def _persist_risk_assessment(
         },
     )
     return assessment
-
-
-def _create_audit_log_entry(
-    *, contract: Contract, clause: Clause, llm_response_raw: dict[str, Any], latency_ms: int
-) -> AuditLogEntry:
-    """Persist the one AuditLogEntry each `score_clause` call writes.
-
-    Reuses phase 1's AuditLogEntry model verbatim - see task 5.4 and
-    proposal.md - Impact ("AuditLogEntry.stage is already an unconstrained
-    int, so stage=5 ... is additive by construction").
-    """
-    return AuditLogEntry.objects.create(
-        contract=contract,
-        clause=clause,
-        stage=_STAGE_5,
-        prompt_version=_RISK_SCORING_PROMPT_VERSION,
-        llm_response_raw=llm_response_raw,
-        model_name=settings.OPENAI_MODEL,
-        latency_ms=latency_ms,
-    )

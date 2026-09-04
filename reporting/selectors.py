@@ -31,10 +31,11 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 
 from contracts import selectors as contracts_selectors
 from contracts.models import Clause, ClauseType, Contract, RazorpayReferenceType
+from core.audit_hash import GENESIS_PREV_HASH, compute_entry_hash
 from evaluation import selectors as evaluation_selectors
 from pipeline import selectors as pipeline_selectors
 from pipeline.models import AuditLogEntry, ExtractedTerm
@@ -111,6 +112,137 @@ def get_full_audit_trail(*, contract: Contract) -> QuerySet[AuditLogEntry]:
     design.md - Decisions.
     """
     return pipeline_selectors.get_audit_trail(contract=contract)
+
+
+# ---------------------------------------------------------------------------
+# Audit-chain verification (spec: pipeline/audit-log-integrity)
+# ---------------------------------------------------------------------------
+#
+# Mirrors `scan_razorpay_guardrail`'s dataclass-result, recompute-don't-trust
+# pattern below: a frozen dataclass result, a `passed: bool`, live
+# recomputation on every call, nothing cached or stored. See
+# openspec/changes/add-audit-log-hash-chain/design.md ("The verification
+# command").
+
+
+@dataclass(frozen=True)
+class AuditChainBreak:
+    """One point where a Contract's persisted hash chain diverges from what
+    recomputation from its own rows would produce."""
+
+    contract_id: uuid.UUID
+    entry_id: uuid.UUID
+    chain_sequence: int
+    reason: str  # "entry_hash_mismatch" | "prev_hash_mismatch" | "chain_sequence_gap"
+
+
+@dataclass(frozen=True)
+class AuditChainVerificationResult:
+    """Result of one `verify_audit_chain` invocation.
+
+    `passed` is `True` only when `breaks` is empty across every contract
+    checked - exempt entries never affect `passed`. `entries_exempt` counts
+    pre-existing (null `entry_hash`) rows, which are never included in
+    `entries_verified` or `breaks` - see specs/pipeline/audit-log-integrity/
+    spec.md (Requirement: Pre-existing entries are explicit chain-exempt,
+    never silently counted as verified).
+    """
+
+    passed: bool
+    contracts_checked: int
+    entries_verified: int
+    entries_exempt: int
+    breaks: list[AuditChainBreak] = field(default_factory=list)
+
+
+def verify_audit_chain(*, contract: Contract | None = None) -> AuditChainVerificationResult:
+    """Recompute and verify the AuditLogEntry hash chain for one Contract, or all.
+
+    Runs live against the current state of the persisted rows on every
+    call - never cached or stored, mirroring `scan_razorpay_guardrail`. Each
+    contract's chain is walked independently, in `chain_sequence` order
+    (nulls last, so exempt rows sort after every hashed row and are never
+    interleaved with the real chain) - see design.md (Decision 1): a break
+    confined to one contract's chain is never reported against any other
+    contract, and each contract's `chain_sequence` is expected to start at
+    `1` independently. A null-`entry_hash` row is counted as exempt and
+    skipped - never treated as a break and never treated as verified (see
+    design.md - Decision 2). For each remaining (hashed) row, in order: its
+    `chain_sequence` must equal the running expected sequence (gap-free,
+    starting at `1` for the contract's first hashed entry - a gap is itself
+    a break, since chain_sequence increments are the only thing standing
+    between "entries deleted" and "entries missing"), its `prev_hash` must
+    equal the previous hashed entry's `entry_hash` (or `GENESIS_PREV_HASH`
+    for the first), and `core.audit_hash.compute_entry_hash(entry)` -
+    exactly the function the writer used - must equal the entry's stored
+    `entry_hash`. Any mismatch is one `AuditChainBreak`.
+    """
+    contracts = [contract] if contract is not None else list(contracts_selectors.list_contracts())
+
+    entries_verified = 0
+    entries_exempt = 0
+    breaks: list[AuditChainBreak] = []
+
+    for one_contract in contracts:
+        entries = AuditLogEntry.objects.filter(contract=one_contract).order_by(
+            F("chain_sequence").asc(nulls_last=True)
+        )
+
+        expected_sequence = 1
+        previous_hash = GENESIS_PREV_HASH
+        for entry in entries:
+            if entry.entry_hash is None:
+                entries_exempt += 1
+                continue
+
+            entries_verified += 1
+
+            # `create_audit_log_entry` never persists entry_hash without
+            # also persisting chain_sequence in the same transaction - a
+            # null chain_sequence here means the row was tampered with
+            # directly. 0 is a safe sentinel (a real chain_sequence always
+            # starts at 1), so this still compares unequal to any
+            # legitimate expected_sequence and is reported as a break below.
+            actual_sequence = entry.chain_sequence if entry.chain_sequence is not None else 0
+
+            if actual_sequence != expected_sequence:
+                breaks.append(
+                    AuditChainBreak(
+                        contract_id=one_contract.id,
+                        entry_id=entry.id,
+                        chain_sequence=actual_sequence,
+                        reason="chain_sequence_gap",
+                    )
+                )
+            elif entry.prev_hash != previous_hash:
+                breaks.append(
+                    AuditChainBreak(
+                        contract_id=one_contract.id,
+                        entry_id=entry.id,
+                        chain_sequence=actual_sequence,
+                        reason="prev_hash_mismatch",
+                    )
+                )
+            elif compute_entry_hash(entry) != entry.entry_hash:
+                breaks.append(
+                    AuditChainBreak(
+                        contract_id=one_contract.id,
+                        entry_id=entry.id,
+                        chain_sequence=actual_sequence,
+                        reason="entry_hash_mismatch",
+                    )
+                )
+
+            expected_sequence = actual_sequence + 1
+            previous_hash = entry.entry_hash
+
+    return AuditChainVerificationResult(
+        passed=not breaks,
+        contracts_checked=len(contracts),
+        entries_verified=entries_verified,
+        entries_exempt=entries_exempt,
+        breaks=breaks,
+    )
 
 
 # ---------------------------------------------------------------------------

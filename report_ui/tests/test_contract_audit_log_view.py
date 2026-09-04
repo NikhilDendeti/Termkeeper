@@ -11,6 +11,8 @@ import pytest
 from django.urls import reverse
 
 from contracts.tests.factories import ClauseFactory, ContractFactory
+from pipeline.models import AuditLogEntry
+from pipeline.services import create_audit_log_entry
 from pipeline.tests.factories import AuditLogEntryFactory
 
 pytestmark = pytest.mark.django_db
@@ -142,3 +144,67 @@ class TestClauseScopeDistinguishable:
 
         assert "contract-level" in content
         assert str(other_clause.id) not in content
+
+
+class TestChainIntegritySection:
+    """Task 8.3 / spec: pipeline/audit-log-integrity - chain integrity surfaced
+    on the audit-log page via the same `verify_audit_chain` the CLI command
+    calls."""
+
+    def test_untampered_chain_renders_pass(self, client):
+        contract = ContractFactory()
+        create_audit_log_entry(
+            contract=contract,
+            clause=None,
+            stage=1,
+            prompt_version="v1",
+            llm_response_raw={"ok": True},
+            model_name="test-model",
+            latency_ms=1,
+        )
+        create_audit_log_entry(
+            contract=contract,
+            clause=None,
+            stage=2,
+            prompt_version="v1",
+            llm_response_raw={"ok": True},
+            model_name="test-model",
+            latency_ms=1,
+        )
+
+        response = client.get(_audit_log_url(contract.id))
+        content = response.content.decode()
+
+        assert "Chain integrity" in content
+        assert "PASS" in content
+        assert "guardrail-pass" in content
+
+    def test_tampered_chain_surfaces_a_break(self, client):
+        contract = ContractFactory()
+        entry = create_audit_log_entry(
+            contract=contract,
+            clause=None,
+            stage=1,
+            prompt_version="v1",
+            llm_response_raw={"ok": True},
+            model_name="test-model",
+            latency_ms=1,
+        )
+        AuditLogEntry.objects.filter(id=entry.id).update(stage=99)
+
+        response = client.get(_audit_log_url(contract.id))
+        content = response.content.decode()
+
+        assert "guardrail-fail" in content
+        assert "break(s) found" in content
+        assert str(entry.id) in content
+
+    def test_contract_with_only_exempt_entries_shows_exempt_note_and_still_passes(self, client):
+        contract = ContractFactory()
+        AuditLogEntryFactory(contract=contract, stage=1)
+
+        response = client.get(_audit_log_url(contract.id))
+        content = response.content.decode()
+
+        assert "guardrail-pass" in content
+        assert "chain-exempt" in content

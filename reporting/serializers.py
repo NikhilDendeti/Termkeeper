@@ -62,6 +62,13 @@ class ContractDocumentSerializer(serializers.Serializer):
 
 
 class AuditLogEntrySerializer(serializers.Serializer):
+    """`prev_hash`/`entry_hash`/`chain_sequence` are additive, non-breaking
+    fields for the per-Contract hash chain - `allow_null=True` because a
+    pre-existing entry written before hash-chain verification existed is
+    chain-exempt (all three null). See
+    openspec/changes/add-audit-log-hash-chain/design.md.
+    """
+
     id = serializers.UUIDField()
     contract_id = serializers.UUIDField()
     clause_id = serializers.UUIDField(allow_null=True)
@@ -71,6 +78,9 @@ class AuditLogEntrySerializer(serializers.Serializer):
     model_name = serializers.CharField()
     latency_ms = serializers.IntegerField()
     created_at = serializers.DateTimeField()
+    prev_hash = serializers.CharField(allow_null=True)
+    entry_hash = serializers.CharField(allow_null=True)
+    chain_sequence = serializers.IntegerField(allow_null=True)
 
 
 # ---------------------------------------------------------------------------
