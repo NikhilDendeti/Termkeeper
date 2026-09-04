@@ -529,6 +529,9 @@ h3 {
 .entry-metadata {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-rows: auto auto;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(130px, 1fr);
   gap: var(--space-1) var(--space-4);
   margin: 0 0 var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -537,7 +540,6 @@ h3 {
 }
 
 .entry-metadata dt {
-  grid-row: 1;
   color: var(--color-text-faint);
   font-size: 0.72rem;
   font-weight: 600;
@@ -679,6 +681,7 @@ h3 {
 
   .entry-metadata {
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(4, auto);
   }
 }
 
