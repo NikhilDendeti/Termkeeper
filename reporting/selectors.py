@@ -35,6 +35,7 @@ from django.db.models import QuerySet
 
 from contracts import selectors as contracts_selectors
 from contracts.models import Clause, ClauseType, Contract, RazorpayReferenceType
+from evaluation import selectors as evaluation_selectors
 from pipeline import selectors as pipeline_selectors
 from pipeline.models import AuditLogEntry, ExtractedTerm
 from razorpay_integration import selectors as razorpay_selectors
@@ -145,9 +146,20 @@ def list_contract_summaries() -> list[ContractSummary]:
     `get_contract_report` (per-contract aggregate) - no read logic is
     re-derived here. See specs/api/contract-listing/spec.md (Requirement:
     Contract list endpoint).
+
+    Excludes synthetic evaluation-dataset fixture Contracts (see
+    `evaluation.selectors.list_eval_fixture_contract_ids`) - those are
+    internal ground-truth data for `manage.py eval run`, never run through
+    the real pipeline until scored, so they would otherwise show up
+    permanently "not yet classified" and confuse a reader of the real
+    contract dashboard, including a partially-generated dataset left behind
+    by an interrupted `eval generate-dataset` run.
     """
+    fixture_ids = evaluation_selectors.list_eval_fixture_contract_ids()
     summaries: list[ContractSummary] = []
     for contract in contracts_selectors.list_contracts():
+        if contract.id in fixture_ids:
+            continue
         report = get_contract_report(contract=contract)
         summaries.append(
             ContractSummary(

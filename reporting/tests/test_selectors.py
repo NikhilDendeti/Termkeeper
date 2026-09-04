@@ -8,6 +8,7 @@ import pytest
 
 from contracts.models import ClauseType, RazorpayReferenceType
 from contracts.tests.factories import ClauseFactory, ContractFactory
+from evaluation.tests.factories import EvalLabelFactory
 from pipeline.tests.factories import ExtractedTermFactory
 from razorpay_integration.models import PlatformRecordType
 from razorpay_integration.tests.factories import MismatchFlagFactory, PlatformRecordFactory
@@ -281,6 +282,21 @@ class TestListContractSummaries:
         summaries = list_contract_summaries()
 
         assert [s.contract_id for s in summaries] == [second.id, first.id]
+
+    def test_excludes_synthetic_evaluation_fixture_contracts(self):
+        """A Contract with an EvalLabel is an eval-dataset fixture, not a
+        real ingested contract - see evaluation.selectors.
+        list_eval_fixture_contract_ids. It must never appear in the
+        user-facing contract list, including one left "not yet classified"
+        by a dataset-generation run that was interrupted partway through
+        (e.g. by an OpenAI rate limit)."""
+        real_contract = ContractFactory()
+        fixture_contract = ContractFactory(engagement_id="synthetic-v1-001")
+        EvalLabelFactory(contract=fixture_contract, clause=ClauseFactory(contract=fixture_contract))
+
+        summaries = list_contract_summaries()
+
+        assert [s.contract_id for s in summaries] == [real_contract.id]
 
 
 class TestVerifiedPlatformRecordsOnReasoningChain:

@@ -76,6 +76,23 @@ def get_latest_eval_run() -> EvalRun | None:
     return EvalRun.objects.first()
 
 
+def list_eval_fixture_contract_ids() -> set[uuid.UUID]:
+    """Every Contract id that is a synthetic evaluation-dataset fixture.
+
+    A Contract is an eval fixture if and only if it has at least one
+    `EvalLabel` attached (`generate_dataset` always creates ground-truth
+    labels alongside the Contract/Clause rows it synthesizes - see
+    `generate_synthetic_contract`). Used by `reporting.selectors` to keep
+    these internal fixtures - which are never run through the real
+    pipeline until a separate `eval run` scores them, so they show as
+    permanently "not yet classified" - out of the user-facing contract
+    list. A partially-generated dataset (e.g. one that hit an OpenAI rate
+    limit partway through) still correctly identifies every fixture it did
+    manage to create.
+    """
+    return set(EvalLabel.objects.values_list("contract_id", flat=True).distinct())
+
+
 # ---------------------------------------------------------------------------
 # Held-out manifest (spec: evaluation/scoring-harness)
 # ---------------------------------------------------------------------------
