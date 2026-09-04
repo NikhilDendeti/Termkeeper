@@ -8,3 +8,11 @@ db.sqlite3
 .ruff_cache/
 *.egg-info/
 staticfiles/
+
+# demo/pitch artifacts, env examples
+PITCH.md
+DEMO_SCRIPT.md
+demo_contracts/
+demo_*.b64
+.env.example
+frontend/.env.example
