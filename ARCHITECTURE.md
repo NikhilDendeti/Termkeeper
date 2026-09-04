@@ -11,6 +11,13 @@ aspirational design — where a claim could go stale, it was re-checked against
 the running code on 2026-09-04 (see [Verification notes](#verification-notes)
 at the end).
 
+![Termkeeper system architecture: ingestion, the six-stage pipeline, the trust layer running alongside it, and the two read-only consumer frontends](docs/architecture-diagram.png)
+
+The diagram above is the whole system at a glance; the sections below walk
+through the same six stages, the trust layer, and the app structure in detail,
+with exact function names and file paths so every box above traces back to
+real code.
+
 ---
 
 ## 1. The pipeline: six stages, database-only handoff

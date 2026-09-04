@@ -16,6 +16,11 @@ capability in this codebase, see **[`openspec/changes/`](openspec/changes/)**
 — nothing here was built without a proposal and a spec written first (details
 below, under [Spec-driven development](#spec-driven-development)).
 
+![Termkeeper system architecture: ingestion, the six-stage pipeline, the trust layer running alongside it, and the two read-only consumer frontends](docs/architecture-diagram.png)
+
+See **[`ARCHITECTURE.md`](ARCHITECTURE.md)** for the same six stages walked
+through in detail, with exact function names and file paths.
+
 ## The core differentiator
 
 Most "contract risk" tools stop at reading the clause text. This one goes one

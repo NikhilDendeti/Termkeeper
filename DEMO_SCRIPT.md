@@ -50,28 +50,66 @@ Verified buildathon requirements (fetched live from razorpay.com/buildathon/, no
 
 ---
 
-### 1:20–3:20 — Live proof (2 minutes — the meat of the video)
+### 1:20–3:30 — Live proof (2:10 — the meat of the video, three genuinely live moments)
 
 **Open `demo-subscription-mismatch`'s Document tab**, and be direct about scope on camera:
 
-> "Stage 4 cross-checks contract terms against two kinds of real Razorpay data: RazorpayX Payout history for empirical cadence and amount drift, and Subscriptions/UPI Autopay for an exact config-field diff. It's fully built and tested against the real SDK's interface — every test mocks the actual shape of a Razorpay response, not an invented one. I'm keeping it gated off in this recording rather than firing live API calls on camera — but here's the code path, and here's the guardrail proving it can never write."
+> "Stage 4 cross-checks contract terms against two kinds of real Razorpay data: RazorpayX Payout history for empirical cadence and amount drift, and Subscriptions/UPI Autopay for an exact config-field diff. It's fully built and tested against the real SDK's interface. I'm keeping it gated off in this recording rather than firing live API calls on camera — but here's the code path, and here's the guardrail proving it can never write."
 
-**Then show these three things (all real, all working right now, zero setup):**
+**Then show these three things — all genuinely live on camera, not pre-recorded, zero API cost:**
 
-1. **A flagged clause with a quote-grounded explanation.** Open `demo-milestone-drift` (`http://localhost:5173/contracts/171177ba-8221-4d6a-86a8-40de0bae9de0`), click into the Reasoning Chain tab, open one flagged clause.
-   > "Every risk explanation quotes the contract text directly — the system can't say 'this clause is risky because X' unless X is a verbatim quote from the actual contract. If it can't ground a claim, it falls back to a deterministic template instead of hallucinating a justification."
+1. **A flagged clause with a quote-grounded explanation** (~25s). Open `demo-milestone-drift` (`http://localhost:5173/contracts/171177ba-8221-4d6a-86a8-40de0bae9de0`), click into the Reasoning Chain tab, open one flagged clause.
+   > "Every risk explanation quotes the contract text directly — the system can't say 'this clause is risky' unless that's a verbatim quote from the actual contract. If it can't ground a claim, it falls back to a deterministic template instead of hallucinating a justification."
 
-2. **The guardrail, live.** Navigate to `/guardrail`.
-   > "This page re-scans the Razorpay integration's source code on every single load — not a cached badge. It's an AST-based static analysis proving, in code, that the path touching Razorpay's API never issues a write call. Zero writes, structurally guaranteed, re-verified right now as you're watching."
+2. **The guardrail, live.** Navigate to `/guardrail`, click **Re-run scan**.
+   > "This re-scans the Razorpay integration's source code right now, on camera — not a cached badge. AST-based static analysis proving the path touching Razorpay's API never issues a write call."
 
-3. **The audit trail.** Back on any contract, open the Audit Trail tab, expand one raw model response.
-   > "Every AI call — prompt version, model, latency, the full raw response — is logged per clause. Nothing about this pipeline is a black box."
+3. **Break the audit trail on purpose, live** (~60s — the strongest live moment in the video). Switch to a terminal:
+   ```bash
+   python manage.py verify_audit_chain
+   ```
+   > "Every AI call writes into a SHA-256 hash chain, one per contract. Let me prove that's real, not decorative — I'll add two entries through the actual write path, verify the chain, then tamper with one and watch it get caught."
 
-*(This block hits Build Quality and AI Judgment directly — deterministic guardrails where it matters, LLM judgment scoped and grounded everywhere else. Being upfront that stage 4 is gated off, and showing exactly why, is itself a Build-Quality signal — judges distrust a demo that blurs "live" and "built.")*
+   Run this (adjust the contract lookup if you used a different one — `demo-milestone-drift` is already in the repo):
+   ```bash
+   python manage.py shell -c "
+   from contracts.models import Contract
+   from pipeline.services import create_audit_log_entry
+   c = Contract.objects.get(engagement_id='demo-milestone-drift')
+   create_audit_log_entry(contract=c, clause=None, stage=1, prompt_version='live-demo', llm_response_raw={'demo': 'entry one'}, model_name='demo', latency_ms=100)
+   create_audit_log_entry(contract=c, clause=None, stage=1, prompt_version='live-demo', llm_response_raw={'demo': 'entry two'}, model_name='demo', latency_ms=100)
+   "
+   python manage.py verify_audit_chain
+   ```
+   > "Two real chained entries, verified." Then, on camera, tamper with one:
+   ```bash
+   python manage.py shell -c "
+   from contracts.models import Contract
+   from pipeline.models import AuditLogEntry
+   c = Contract.objects.get(engagement_id='demo-milestone-drift')
+   e = AuditLogEntry.objects.filter(contract=c, entry_hash__isnull=False).order_by('chain_sequence').first()
+   e.llm_response_raw = {'demo': 'TAMPERED'}
+   e.save()
+   "
+   python manage.py verify_audit_chain
+   ```
+   > "Same command. It catches it — exact entry, exact reason. Not a log that just sits there; a chain that proves its own integrity."
+
+   **After the take, clean up** (don't leave test rows in before you finish recording, or before submitting):
+   ```bash
+   python manage.py shell -c "
+   from contracts.models import Contract
+   from pipeline.models import AuditLogEntry
+   c = Contract.objects.get(engagement_id='demo-milestone-drift')
+   AuditLogEntry.objects.filter(contract=c, prompt_version='live-demo').delete()
+   "
+   ```
+
+*(This block hits Build Quality and AI Judgment directly — deterministic guardrails where it matters, LLM judgment scoped and grounded everywhere else. Being upfront that stage 4 is gated off, and showing exactly why, is itself a Build-Quality signal — judges distrust a demo that blurs "live" and "built." The hash-chain break is the one moment in the whole video where you cause a failure on purpose and the system catches it in real time — that's a live "Failure Recovery" proof, not just a story about a past one.)*
 
 ---
 
-### 3:20–4:10 — Failure Recovery, closed out (50 seconds)
+### 3:30–4:15 — Failure Recovery, closed out (45 seconds)
 
 **Say, back on the OudhTrade contract or a split view of the before/after:**
 
@@ -81,7 +119,7 @@ Verified buildathon requirements (fetched live from razorpay.com/buildathon/, no
 
 ---
 
-### 4:10–4:45 — The evidence, fast (35 seconds)
+### 4:15–4:45 — The evidence, fast (30 seconds)
 
 **Quick cuts, 5-7 seconds each:**
 - `/about` page: pipeline stages, clause taxonomy, OpenSpec change count, live test counts
