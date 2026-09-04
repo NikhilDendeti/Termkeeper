@@ -80,6 +80,7 @@ const scoredClause: ClauseReasoningChain = {
     linked_mismatch_flag_ids: [],
     created_at: "2026-01-01T00:00:00Z",
   },
+  overdue_statuses: [],
 };
 
 const unscoredClause: ClauseReasoningChain = {
@@ -94,6 +95,7 @@ const unscoredClause: ClauseReasoningChain = {
   platform_evidence: [],
   verified_platform_records: [],
   risk_assessment: null,
+  overdue_statuses: [],
 };
 
 const auditEntry: AuditLogEntry = {
@@ -265,6 +267,72 @@ describe("ContractDetailPage", () => {
 
     expect(screen.getByTestId("mismatch-list")).toBeInTheDocument();
     expect(screen.queryByTestId("confirmed-platform-evidence")).not.toBeInTheDocument();
+  });
+
+  it("shows an overdue warning banner for a term list_overdue_statuses reports as overdue", async () => {
+    const overdueClause: ClauseReasoningChain = {
+      ...scoredClause,
+      overdue_statuses: [
+        {
+          term_id: "term-1",
+          is_overdue: true,
+          days_since_last_payout: 40,
+          expected_interval_days: 30,
+          latest_payout_date: "2026-01-01T00:00:00Z",
+        },
+      ],
+    };
+    mockedGetChain.mockResolvedValueOnce([overdueClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    renderPage();
+    await openReasoningChainTab(user);
+
+    await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
+
+    const banner = screen.getByTestId("overdue-banner");
+    expect(banner).toHaveTextContent("Overdue");
+    expect(banner).toHaveTextContent("expected every 30 days");
+    expect(banner).toHaveTextContent("last payout was 40 days ago");
+  });
+
+  it("shows no overdue banner when the term's overdue status is not overdue", async () => {
+    const notOverdueClause: ClauseReasoningChain = {
+      ...scoredClause,
+      overdue_statuses: [
+        {
+          term_id: "term-1",
+          is_overdue: false,
+          days_since_last_payout: 5,
+          expected_interval_days: 30,
+          latest_payout_date: "2026-01-01T00:00:00Z",
+        },
+      ],
+    };
+    mockedGetChain.mockResolvedValueOnce([notOverdueClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    renderPage();
+    await openReasoningChainTab(user);
+
+    await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
+
+    expect(screen.queryByTestId("overdue-banner")).not.toBeInTheDocument();
+  });
+
+  it("shows no overdue banner when overdue_statuses is empty", async () => {
+    mockedGetChain.mockResolvedValueOnce([scoredClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    renderPage();
+    await openReasoningChainTab(user);
+
+    await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
+
+    expect(screen.queryByTestId("overdue-banner")).not.toBeInTheDocument();
   });
 
   it("shows an explicit 'not yet assessed' state for a clause with a null risk_assessment", async () => {

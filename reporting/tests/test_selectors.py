@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
+from django.test import override_settings
+from django.utils import timezone
 
 from contracts.models import ClauseType, RazorpayReferenceType
 from contracts.tests.factories import ClauseFactory, ContractFactory
 from evaluation.tests.factories import EvalLabelFactory
+from pipeline.models import TermType
 from pipeline.tests.factories import ExtractedTermFactory
 from razorpay_integration.models import PlatformRecordType
 from razorpay_integration.tests.factories import MismatchFlagFactory, PlatformRecordFactory
@@ -367,6 +371,97 @@ class TestVerifiedPlatformRecordsOnReasoningChain:
 
         assert chains[0].extracted_terms == []
         assert chains[0].verified_platform_records == []
+
+
+class TestOverdueStatusesOnReasoningChain:
+    """Spec: razorpay-integration/overdue-payment-detection - "Overdue status
+    is surfaced on the reasoning-chain API at clause grain"."""
+
+    @override_settings(CADENCE_MISMATCH_TOLERANCE_RATIO=0.2)
+    def test_clause_with_an_overdue_term_surfaces_it(self):
+        contract = ContractFactory(razorpay_reference_type=RazorpayReferenceType.PAYOUT)
+        clause = ClauseFactory(contract=contract, sequence_index=0)
+        term = ExtractedTermFactory(
+            clause=clause,
+            term_type=TermType.PAYOUT_FREQUENCY,
+            value_structured={"numeric_value": 30, "unit": "days"},
+        )
+        PlatformRecordFactory(
+            contract=contract,
+            record_type=PlatformRecordType.PAYOUT,
+            razorpay_created_at=timezone.now() - timedelta(days=40),
+        )
+
+        chains = get_contract_reasoning_chain(contract=contract)
+
+        assert len(chains) == 1
+        statuses = chains[0].overdue_statuses
+        assert len(statuses) == 1
+        assert statuses[0].term_id == term.id
+        assert statuses[0].is_overdue is True
+
+    def test_clause_with_no_qualifying_term_has_an_empty_list(self):
+        contract = ContractFactory(razorpay_reference_type=RazorpayReferenceType.PAYOUT)
+        ClauseFactory(contract=contract, sequence_index=0)
+
+        chains = get_contract_reasoning_chain(contract=contract)
+
+        assert chains[0].overdue_statuses == []
+
+    def test_overdue_status_is_attributed_to_the_owning_clause_only(self):
+        """A Contract with two payment-schedule clauses - the overdue
+        status for one clause's term must never leak onto the other."""
+        contract = ContractFactory(razorpay_reference_type=RazorpayReferenceType.PAYOUT)
+        clause_a = ClauseFactory(contract=contract, sequence_index=0)
+        clause_b = ClauseFactory(contract=contract, sequence_index=1)
+        term_a = ExtractedTermFactory(
+            clause=clause_a,
+            term_type=TermType.PAYOUT_FREQUENCY,
+            value_structured={"numeric_value": 30, "unit": "days"},
+        )
+        PlatformRecordFactory(
+            contract=contract,
+            record_type=PlatformRecordType.PAYOUT,
+            razorpay_created_at=timezone.now() - timedelta(days=5),
+        )
+
+        chains = get_contract_reasoning_chain(contract=contract)
+
+        chain_by_clause_id = {chain.clause.id: chain for chain in chains}
+        assert len(chain_by_clause_id[clause_a.id].overdue_statuses) == 1
+        assert chain_by_clause_id[clause_a.id].overdue_statuses[0].term_id == term_a.id
+        assert chain_by_clause_id[clause_b.id].overdue_statuses == []
+
+    def test_amount_type_term_never_surfaces_an_overdue_status(self):
+        contract = ContractFactory(razorpay_reference_type=RazorpayReferenceType.PAYOUT)
+        clause = ClauseFactory(contract=contract, sequence_index=0)
+        ExtractedTermFactory(
+            clause=clause,
+            term_type=TermType.PAYOUT_FREQUENCY,
+            value_structured={"numeric_value": 500, "unit": "INR"},
+        )
+        PlatformRecordFactory(
+            contract=contract,
+            record_type=PlatformRecordType.PAYOUT,
+            razorpay_created_at=timezone.now() - timedelta(days=400),
+        )
+
+        chains = get_contract_reasoning_chain(contract=contract)
+
+        assert chains[0].overdue_statuses == []
+
+    def test_subscription_referenced_contract_never_surfaces_an_overdue_status(self):
+        contract = ContractFactory(razorpay_reference_type=RazorpayReferenceType.SUBSCRIPTION)
+        clause = ClauseFactory(contract=contract, sequence_index=0)
+        ExtractedTermFactory(
+            clause=clause,
+            term_type=TermType.PAYOUT_FREQUENCY,
+            value_structured={"numeric_value": 30, "unit": "days"},
+        )
+
+        chains = get_contract_reasoning_chain(contract=contract)
+
+        assert chains[0].overdue_statuses == []
 
 
 class TestContractDocumentNeedsHumanReview:

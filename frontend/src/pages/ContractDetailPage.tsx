@@ -338,18 +338,38 @@ function ReasoningChainSection({ chain }: { chain: ClauseReasoningChain[] }) {
                 <p className="reasoning-stage-label">Extracted term(s)</p>
                 {entry.extracted_terms.length > 0 ? (
                   <ul className="term-list">
-                    {entry.extracted_terms.map((term) => (
-                      <li key={term.id} className="term-item">
-                        <div className="term-item-head">
-                          {term.needs_human_review && <SeverityBadge severity="needs_human_review" />}
-                          <span>{termTypeLabel(term.term_type)}</span>
-                          <span className="confidence-note">
-                            (confidence {term.extraction_confidence.toFixed(2)})
-                          </span>
-                        </div>
-                        <span>&ldquo;{term.value_raw}&rdquo;</span>
-                      </li>
-                    ))}
+                    {entry.extracted_terms.map((term) => {
+                      const overdueStatus = entry.overdue_statuses.find(
+                        (status) => status.term_id === term.id && status.is_overdue,
+                      );
+                      return (
+                        <li key={term.id} className="term-item">
+                          <div className="term-item-head">
+                            {term.needs_human_review && (
+                              <SeverityBadge severity="needs_human_review" />
+                            )}
+                            <span>{termTypeLabel(term.term_type)}</span>
+                            <span className="confidence-note">
+                              (confidence {term.extraction_confidence.toFixed(2)})
+                            </span>
+                          </div>
+                          <span>&ldquo;{term.value_raw}&rdquo;</span>
+                          {overdueStatus && (
+                            <div>
+                              <span
+                                className="overdue-banner"
+                                data-testid="overdue-banner"
+                                role="status"
+                              >
+                                <Icon name="clock" size={12} className="overdue-banner-icon" />
+                                Overdue &mdash; expected every {overdueStatus.expected_interval_days}{" "}
+                                days, last payout was {overdueStatus.days_since_last_payout} days ago
+                              </span>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="empty-note">No extracted terms</p>

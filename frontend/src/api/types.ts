@@ -235,6 +235,19 @@ export interface RiskAssessmentEntry {
   created_at: string;
 }
 
+// razorpay_integration.selectors.OverdueStatus, as exposed by
+// reporting.serializers.OverdueStatusSerializer - a live, request-time
+// verdict recomputed on every read, never persisted (never a MismatchFlag).
+// See specs/razorpay-integration/overdue-payment-detection/spec.md
+// (add-overdue-payment-detection).
+export interface OverdueStatusEntry {
+  term_id: string;
+  is_overdue: boolean;
+  days_since_last_payout: number;
+  expected_interval_days: number;
+  latest_payout_date: string;
+}
+
 export interface ClauseReasoningChain {
   clause_id: string;
   sequence_index: number;
@@ -264,6 +277,15 @@ export interface ClauseReasoningChain {
   // specs/reporting/confirmed-platform-evidence/spec.md.
   verified_platform_records: PlatformRecord[];
   risk_assessment: RiskAssessmentEntry | null;
+  // Live overdue-payment verdicts for this clause's cadence-type
+  // payout_frequency extracted term(s) - recomputed on every read, never
+  // persisted, and unrelated to any MismatchFlag. Always present as a list
+  // (possibly empty), same convention as extracted_terms/platform_evidence.
+  // Populated only for a Payout-referenced Contract's cadence-shaped
+  // payout_frequency terms - empty for a Subscription-referenced Contract,
+  // an amount-shaped term, or a Contract with no observed Payout history
+  // yet. See specs/razorpay-integration/overdue-payment-detection/spec.md.
+  overdue_statuses: OverdueStatusEntry[];
 }
 
 // ---------------------------------------------------------------------------

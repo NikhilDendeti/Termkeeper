@@ -170,6 +170,21 @@ class RiskAssessmentSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField()
 
 
+class OverdueStatusSerializer(serializers.Serializer):
+    """Mirrors `razorpay_integration.selectors.OverdueStatus` field-for-field.
+
+    Live-computed on every read, never persisted - see
+    specs/razorpay-integration/overdue-payment-detection/spec.md
+    (add-overdue-payment-detection).
+    """
+
+    term_id = serializers.UUIDField()
+    is_overdue = serializers.BooleanField()
+    days_since_last_payout = serializers.IntegerField()
+    expected_interval_days = serializers.FloatField()
+    latest_payout_date = serializers.DateTimeField()
+
+
 class ClauseReasoningChainSerializer(serializers.Serializer):
     """Mirrors `reporting.selectors.ClauseReasoningChain` field-for-field.
 
@@ -177,11 +192,12 @@ class ClauseReasoningChainSerializer(serializers.Serializer):
     sequence_index, clause_type, clause_text, ...) rather than nested under
     a `clause` key, matching the flattening convention already established
     by `FlaggedClauseSerializer`/`NeedsHumanReviewClauseSerializer` above.
-    `extracted_terms`, `platform_evidence`, and `verified_platform_records`
-    are always present, possibly empty, lists (never omitted or null -
-    spec: api/reasoning-chain, "Clause with no platform evidence"; spec:
-    reporting/confirmed-platform-evidence); `risk_assessment` is explicitly
-    null when the clause has not yet been risk-scored (spec:
+    `extracted_terms`, `platform_evidence`, `verified_platform_records`, and
+    `overdue_statuses` are always present, possibly empty, lists (never
+    omitted or null - spec: api/reasoning-chain, "Clause with no platform
+    evidence"; spec: reporting/confirmed-platform-evidence; spec:
+    razorpay-integration/overdue-payment-detection); `risk_assessment` is
+    explicitly null when the clause has not yet been risk-scored (spec:
     api/reasoning-chain, "Clause not yet risk-scored") - DRF serializes a
     None attribute as null for a nested-serializer field automatically, no
     extra handling needed here.
@@ -202,6 +218,7 @@ class ClauseReasoningChainSerializer(serializers.Serializer):
     platform_evidence = MismatchFlagSerializer(source="mismatch_flags", many=True)
     verified_platform_records = PlatformRecordSerializer(many=True)
     risk_assessment = RiskAssessmentSerializer()
+    overdue_statuses = OverdueStatusSerializer(many=True)
 
 
 # ---------------------------------------------------------------------------

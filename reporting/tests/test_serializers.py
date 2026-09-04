@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from reporting.serializers import (
     ClauseReasoningChainSerializer,
@@ -360,6 +361,74 @@ class TestClauseReasoningChainSerializer:
         assert confirmed["record_type"] == "payout"
         assert confirmed["razorpay_id"] == "pout_000001"
         assert confirmed["payload"] == {"id": "pout_000001", "amount": 500000}
+
+
+class TestClauseReasoningChainSerializerOverdueStatuses:
+    """Spec: razorpay-integration/overdue-payment-detection - "Overdue status
+    is surfaced on the reasoning-chain API at clause grain"."""
+
+    def test_overdue_statuses_serialize_when_present(self):
+        from razorpay_integration.selectors import OverdueStatus
+        from reporting.selectors import ClauseReasoningChain
+
+        clause = _FakeClause(
+            id=uuid.uuid4(),
+            sequence_index=0,
+            clause_type="payment_schedule",
+            clause_text="Vendor shall be paid every 30 days.",
+            classification_confidence=0.9,
+            classification_rationale="States a cadence.",
+        )
+        term_id = uuid.uuid4()
+        status = OverdueStatus(
+            term_id=term_id,
+            is_overdue=True,
+            days_since_last_payout=40,
+            expected_interval_days=30.0,
+            latest_payout_date=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        chain = ClauseReasoningChain(
+            clause=clause,
+            classification_needs_human_review=False,
+            extracted_terms=[],
+            mismatch_flags=[],
+            verified_platform_records=[],
+            risk_assessment=None,
+            overdue_statuses=[status],
+        )
+
+        data = ClauseReasoningChainSerializer(instance=chain).data
+
+        assert len(data["overdue_statuses"]) == 1
+        entry = data["overdue_statuses"][0]
+        assert str(entry["term_id"]) == str(term_id)
+        assert entry["is_overdue"] is True
+        assert entry["days_since_last_payout"] == 40
+        assert entry["expected_interval_days"] == 30.0
+
+    def test_overdue_statuses_defaults_to_an_empty_list(self):
+        from reporting.selectors import ClauseReasoningChain
+
+        clause = _FakeClause(
+            id=uuid.uuid4(),
+            sequence_index=1,
+            clause_type=None,
+            clause_text="Ambiguous boilerplate text.",
+            classification_confidence=None,
+            classification_rationale=None,
+        )
+        chain = ClauseReasoningChain(
+            clause=clause,
+            classification_needs_human_review=False,
+            extracted_terms=[],
+            mismatch_flags=[],
+            verified_platform_records=[],
+            risk_assessment=None,
+        )
+
+        data = ClauseReasoningChainSerializer(instance=chain).data
+
+        assert data["overdue_statuses"] == []
 
 
 class TestGuardrailScanResultSerializer:

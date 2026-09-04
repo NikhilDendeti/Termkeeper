@@ -70,24 +70,20 @@ _STAGE_4 = 4
 # is always a single {numeric_value, unit} pair, so this module classifies
 # each such term as either a *cadence* term (its `unit` names a recognized
 # time unit) or an *amount* term (any other unit, including none) - see
-# `_is_cadence_term` / `_is_amount_term`. Every other term_type has no
-# independently GET-able Subscription/Token equivalent and is always
-# trigger_condition_unverifiable on the subscription path (task 5.3's
-# milestone_trigger example generalizes to the whole rest of the taxonomy).
+# `razorpay_selectors.is_cadence_term` / `razorpay_selectors.is_amount_term`.
+# These classification helpers (and `term_unit`/`term_numeric_value`/
+# `TIME_UNITS`/`DAYS_PER_UNIT`) used to be defined here, private; they were
+# promoted to public names in `razorpay_integration/selectors.py` in
+# add-overdue-payment-detection - a pure-read classification of an
+# ExtractedTerm's `value_structured` belongs in the reads module, not this
+# writes module, per this project's established services.py-writes /
+# selectors.py-reads convention. See selectors.py's module docstring and
+# openspec/changes/add-overdue-payment-detection/design.md. Every other
+# term_type has no independently GET-able Subscription/Token equivalent and
+# is always trigger_condition_unverifiable on the subscription path (task
+# 5.3's milestone_trigger example generalizes to the whole rest of the
+# taxonomy).
 
-_TIME_UNITS: frozenset[str] = frozenset(
-    {"day", "days", "week", "weeks", "month", "months", "year", "years"}
-)
-_DAYS_PER_UNIT: dict[str, float] = {
-    "day": 1.0,
-    "days": 1.0,
-    "week": 7.0,
-    "weeks": 7.0,
-    "month": 30.0,
-    "months": 30.0,
-    "year": 365.0,
-    "years": 365.0,
-}
 _PERIOD_BY_UNIT: dict[str, str] = {
     "day": "daily",
     "days": "daily",
@@ -98,33 +94,6 @@ _PERIOD_BY_UNIT: dict[str, str] = {
     "year": "yearly",
     "years": "yearly",
 }
-
-
-def _term_unit(term: ExtractedTerm) -> str | None:
-    value_structured = term.value_structured or {}
-    unit = value_structured.get("unit")
-    if isinstance(unit, str) and unit.strip():
-        return unit.strip().lower()
-    return None
-
-
-def _term_numeric_value(term: ExtractedTerm) -> float | None:
-    value_structured = term.value_structured or {}
-    numeric_value = value_structured.get("numeric_value")
-    if numeric_value is None:
-        return None
-    return float(numeric_value)
-
-
-def _is_cadence_term(term: ExtractedTerm) -> bool:
-    """Whether a payout_frequency term states a time interval (vs an amount)."""
-    unit = _term_unit(term)
-    return unit is not None and unit in _TIME_UNITS
-
-
-def _is_amount_term(term: ExtractedTerm) -> bool:
-    """Whether a payout_frequency term states a numeric amount (vs a cadence)."""
-    return _term_numeric_value(term) is not None and not _is_cadence_term(term)
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +199,9 @@ def _run_payout_crosscheck(*, contract: Contract) -> list[MismatchFlag]:
     """Cross-check a Contract's payout_frequency terms against Payout history."""
     payout_terms = _list_payout_frequency_terms(contract=contract)
     comparable_terms = [
-        term for term in payout_terms if _is_cadence_term(term) or _is_amount_term(term)
+        term
+        for term in payout_terms
+        if razorpay_selectors.is_cadence_term(term) or razorpay_selectors.is_amount_term(term)
     ]
 
     payout_records = list(
@@ -254,7 +225,7 @@ def _run_payout_crosscheck(*, contract: Contract) -> list[MismatchFlag]:
     flags: list[MismatchFlag] = []
     for term in comparable_terms:
         flag: MismatchFlag | None
-        if _is_cadence_term(term):
+        if razorpay_selectors.is_cadence_term(term):
             flag = _evaluate_cadence_term(
                 term=term,
                 empirical_cadence_days=empirical_cadence_days,
@@ -274,12 +245,12 @@ def _run_payout_crosscheck(*, contract: Contract) -> list[MismatchFlag]:
 def _evaluate_cadence_term(
     *, term: ExtractedTerm, empirical_cadence_days: float, platform_record: PlatformRecord
 ) -> MismatchFlag | None:
-    numeric_value = _term_numeric_value(term)
-    unit = _term_unit(term)
-    if numeric_value is None or unit is None or unit not in _DAYS_PER_UNIT:
+    numeric_value = razorpay_selectors.term_numeric_value(term)
+    unit = razorpay_selectors.term_unit(term)
+    if numeric_value is None or unit is None or unit not in razorpay_selectors.DAYS_PER_UNIT:
         return None
 
-    expected_days = numeric_value * _DAYS_PER_UNIT[unit]
+    expected_days = numeric_value * razorpay_selectors.DAYS_PER_UNIT[unit]
     deviation_ratio = _deviation_ratio(expected=expected_days, actual=empirical_cadence_days)
     if deviation_ratio <= settings.CADENCE_MISMATCH_TOLERANCE_RATIO:
         return None
@@ -298,7 +269,7 @@ def _evaluate_cadence_term(
 def _evaluate_amount_term(
     *, term: ExtractedTerm, empirical_amount: float, platform_record: PlatformRecord
 ) -> MismatchFlag | None:
-    numeric_value = _term_numeric_value(term)
+    numeric_value = razorpay_selectors.term_numeric_value(term)
     if numeric_value is None:
         return None
 
@@ -306,7 +277,7 @@ def _evaluate_amount_term(
     if deviation_ratio <= settings.AMOUNT_MISMATCH_TOLERANCE_PCT:
         return None
 
-    expected_value = {"numeric_value": numeric_value, "unit": _term_unit(term)}
+    expected_value = {"numeric_value": numeric_value, "unit": razorpay_selectors.term_unit(term)}
     actual_value = {"empirical_amount": round(empirical_amount, 2)}
     return _create_llm_described_mismatch_flag(
         mismatch_type=MismatchType.AMOUNT_MISMATCH.value,
@@ -410,11 +381,11 @@ def _run_subscription_crosscheck(*, contract: Contract) -> list[MismatchFlag]:
             continue  # nothing fetched to diff against
 
         flag: MismatchFlag | None
-        if _is_cadence_term(term):
+        if razorpay_selectors.is_cadence_term(term):
             flag = _evaluate_subscription_cadence_term(
                 term=term, subscription_record=subscription_record
             )
-        elif _is_amount_term(term):
+        elif razorpay_selectors.is_amount_term(term):
             flag = _evaluate_subscription_amount_term(
                 term=term, subscription_record=subscription_record
             )
@@ -430,8 +401,8 @@ def _run_subscription_crosscheck(*, contract: Contract) -> list[MismatchFlag]:
 def _evaluate_subscription_cadence_term(
     *, term: ExtractedTerm, subscription_record: PlatformRecord
 ) -> MismatchFlag | None:
-    numeric_value = _term_numeric_value(term)
-    unit = _term_unit(term)
+    numeric_value = razorpay_selectors.term_numeric_value(term)
+    unit = razorpay_selectors.term_unit(term)
     if numeric_value is None or unit is None or unit not in _PERIOD_BY_UNIT:
         return None
 
@@ -464,7 +435,7 @@ def _evaluate_subscription_cadence_term(
 def _evaluate_subscription_amount_term(
     *, term: ExtractedTerm, subscription_record: PlatformRecord
 ) -> MismatchFlag | None:
-    numeric_value = _term_numeric_value(term)
+    numeric_value = razorpay_selectors.term_numeric_value(term)
     if numeric_value is None:
         return None
 
@@ -477,7 +448,7 @@ def _evaluate_subscription_amount_term(
     if matches:
         return None
 
-    expected_value = {"numeric_value": numeric_value, "unit": _term_unit(term)}
+    expected_value = {"numeric_value": numeric_value, "unit": razorpay_selectors.term_unit(term)}
     actual_value = {"item_amount_paise": actual_amount_paise}
     return _create_llm_described_mismatch_flag(
         mismatch_type=MismatchType.AMOUNT_MISMATCH.value,

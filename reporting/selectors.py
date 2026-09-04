@@ -396,7 +396,15 @@ class ClauseReasoningChain:
     See specs/reporting/confirmed-platform-evidence/spec.md
     (add-confirmed-platform-evidence). `risk_assessment` is `None` when
     stage 5 has not yet run for this clause (specs/api/reasoning-chain/spec.md
-    - "Clause not yet risk-scored").
+    - "Clause not yet risk-scored"). `overdue_statuses` is this clause's
+    live overdue-payment verdicts - one entry per cadence-type
+    payout_frequency ExtractedTerm belonging to this clause that
+    `razorpay_selectors.list_overdue_statuses` produced a result for; always
+    a list (possibly empty, never omitted or null), same convention as
+    `extracted_terms` and `mismatch_flags`. Recomputed live on every call,
+    never persisted - see
+    specs/razorpay-integration/overdue-payment-detection/spec.md
+    (add-overdue-payment-detection).
     """
 
     clause: Clause
@@ -405,6 +413,7 @@ class ClauseReasoningChain:
     mismatch_flags: list[MismatchFlag]
     verified_platform_records: list[PlatformRecord]
     risk_assessment: RiskAssessment | None
+    overdue_statuses: list[razorpay_selectors.OverdueStatus] = field(default_factory=list)
 
 
 def get_contract_reasoning_chain(*, contract: Contract) -> list[ClauseReasoningChain]:
@@ -413,7 +422,20 @@ def get_contract_reasoning_chain(*, contract: Contract) -> list[ClauseReasoningC
     Every clause is included regardless of `clause_type` or review state -
     see specs/api/reasoning-chain/spec.md (Requirement: Reasoning-chain
     endpoint - "Every clause included regardless of state").
+
+    `razorpay_selectors.list_overdue_statuses` is called once per contract
+    (it already walks every clause internally to find qualifying terms, the
+    same shape `services._list_payout_frequency_terms` uses) rather than
+    once per clause in the loop below - each result is then matched back to
+    its owning clause by `term_id`, since a live overdue verdict is
+    inherently per-ExtractedTerm and an ExtractedTerm belongs to exactly one
+    clause.
     """
+    overdue_statuses_by_term_id = {
+        status.term_id: status
+        for status in razorpay_selectors.list_overdue_statuses(contract=contract)
+    }
+
     chains: list[ClauseReasoningChain] = []
     for clause in contracts_selectors.list_clauses_for_contract(contract=contract):
         extracted_terms = list(pipeline_selectors.list_extracted_terms_for_clause(clause=clause))
@@ -422,6 +444,11 @@ def get_contract_reasoning_chain(*, contract: Contract) -> list[ClauseReasoningC
             contract=contract, extracted_terms=extracted_terms, mismatch_flags=mismatch_flags
         )
         risk_assessment = risk_scoring_selectors.get_risk_assessment_for_clause(clause=clause)
+        overdue_statuses = [
+            overdue_statuses_by_term_id[term.id]
+            for term in extracted_terms
+            if term.id in overdue_statuses_by_term_id
+        ]
         chains.append(
             ClauseReasoningChain(
                 clause=clause,
@@ -432,6 +459,7 @@ def get_contract_reasoning_chain(*, contract: Contract) -> list[ClauseReasoningC
                 mismatch_flags=mismatch_flags,
                 verified_platform_records=verified_platform_records,
                 risk_assessment=risk_assessment,
+                overdue_statuses=overdue_statuses,
             )
         )
     return chains

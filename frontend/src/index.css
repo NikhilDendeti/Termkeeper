@@ -1121,6 +1121,26 @@ details[open] > .clause-entry-summary .clause-disclosure-icon {
   color: var(--color-text-primary);
 }
 
+/* Live overdue-payment banner - `.confirmed-banner`'s pill shape, with
+   `--color-warning*` swapped in for `--color-success*` (the same tokens
+   `.needs-review-banner` already uses). A live, request-time verdict, not a
+   persisted MismatchFlag, so it is rendered per-term inside `.term-item`
+   rather than alongside `.mismatch-item`/`.confirmed-banner` platform
+   evidence. See specs/razorpay-integration/overdue-payment-detection/spec.md. */
+.overdue-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.2rem var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+  margin-top: var(--space-2);
+}
+
 .empty-note {
   color: var(--color-text-tertiary);
   font-size: var(--text-sm);
