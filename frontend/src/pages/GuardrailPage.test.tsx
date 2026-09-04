@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GuardrailScanResult } from "../api/types";
@@ -73,5 +74,47 @@ describe("GuardrailPage", () => {
     render(<GuardrailPage />);
 
     await waitFor(() => expect(screen.getByTestId("error-state")).toBeInTheDocument());
+  });
+
+  it("lets a passing scan be re-run without a full page reload", async () => {
+    const passing: GuardrailScanResult = { passed: true, scanned_files: ["a.py"], violations: [] };
+    const failing: GuardrailScanResult = {
+      passed: false,
+      scanned_files: ["a.py"],
+      violations: [{ file: "a.py", line: 1, matched_call: "sdk_client.post" }],
+    };
+    mockedGetGuardrailStatus.mockResolvedValueOnce(passing);
+    mockedGetGuardrailStatus.mockResolvedValueOnce(failing);
+
+    const user = userEvent.setup();
+    render(<GuardrailPage />);
+
+    await waitFor(() => expect(screen.getByTestId("guardrail-result")).toHaveTextContent(/PASS/));
+
+    await user.click(screen.getByRole("button", { name: /re-run scan/i }));
+
+    await waitFor(() => expect(screen.getByTestId("guardrail-result")).toHaveTextContent(/FAIL/));
+    expect(mockedGetGuardrailStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("colors the Status and Write-call violations tiles with the same pass/fail token, not the severity ramp", async () => {
+    const result: GuardrailScanResult = {
+      passed: false,
+      scanned_files: ["a.py"],
+      violations: [{ file: "a.py", line: 1, matched_call: "sdk_client.post" }],
+    };
+    mockedGetGuardrailStatus.mockResolvedValueOnce(result);
+
+    render(<GuardrailPage />);
+
+    await waitFor(() => expect(screen.getByTestId("guardrail-stats")).toBeInTheDocument());
+
+    const [statusValue, , violationsValue] = screen
+      .getByTestId("guardrail-stats")
+      .querySelectorAll(".stat-tile-value");
+    expect(statusValue).toHaveClass("stat-tile-value--fail");
+    expect(violationsValue).toHaveClass("stat-tile-value--fail");
+    expect(statusValue.className).not.toMatch(/severity/);
+    expect(violationsValue.className).not.toMatch(/is-attention/);
   });
 });

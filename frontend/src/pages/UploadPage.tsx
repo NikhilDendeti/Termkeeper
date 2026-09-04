@@ -22,6 +22,26 @@ function defaultRazorpayReferenceId(): string {
   return `manual-upload-${Date.now()}`;
 }
 
+// Maps a DRF serializer field name to the label shown for it in this form,
+// so a raw "raw_text: This field may not be blank." backend error reads as
+// "Contract text: This field may not be blank." - the field the user
+// actually sees, not the wire name.
+const FIELD_LABELS: Record<string, string> = {
+  raw_text: "Contract text",
+  engagement_id: "Engagement id",
+  razorpay_reference_type: "Razorpay reference type",
+  razorpay_reference_id: "Razorpay reference id",
+  source_filename: "Source file",
+};
+
+function humanizeApiErrorMessage(message: string): string {
+  const match = /^([a-z_]+):\s*(.+)$/.exec(message);
+  if (!match) return message;
+  const [, field, rest] = match;
+  const label = FIELD_LABELS[field];
+  return label ? `${label}: ${rest}` : message;
+}
+
 /**
  * Lets a person submit their own contract text - pasted, or a local .txt
  * file read client-side - and watch the real, unmodified pipeline analyze
@@ -34,6 +54,8 @@ export default function UploadPage() {
 
   const [contractText, setContractText] = useState("");
   const [sourceFilename, setSourceFilename] = useState<string | null>(null);
+  const [fileEdited, setFileEdited] = useState(false);
+  const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [engagementId, setEngagementId] = useState(defaultEngagementId);
   const [razorpayReferenceType, setRazorpayReferenceType] =
     useState<RazorpayReferenceType>("payout");
@@ -47,19 +69,42 @@ export default function UploadPage() {
     event.target.value = ""; // lets the same file be re-selected later
     if (!file) return;
 
+    setFileEdited(false);
+    const looksTextual = file.type === "" || file.type.startsWith("text/");
+
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === "string") {
         setContractText(reader.result);
         setSourceFilename(file.name);
+        setFileNotice(
+          looksTextual
+            ? null
+            : `"${file.name}" doesn't look like a plain-text file (type: ${file.type || "unknown"}). Check the extracted text below before submitting - it may be unreadable.`,
+        );
       }
+    };
+    reader.onerror = () => {
+      setFileNotice(`Could not read "${file.name}" - try pasting the text instead.`);
     };
     reader.readAsText(file);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!contractText.trim() || !engagementId.trim() || !razorpayReferenceId.trim()) return;
+
+    const missingFields: string[] = [];
+    if (!contractText.trim()) missingFields.push("Contract text");
+    if (!engagementId.trim()) missingFields.push("Engagement id");
+    if (!razorpayReferenceId.trim()) missingFields.push("Razorpay reference id");
+    if (missingFields.length > 0) {
+      setPhase({
+        status: "error",
+        message: `${missingFields.join(", ")} cannot be blank.`,
+        contractId: null,
+      });
+      return;
+    }
 
     setPhase({ status: "creating" });
     let contractId: string;
@@ -75,7 +120,7 @@ export default function UploadPage() {
     } catch (error: unknown) {
       const message =
         error instanceof ApiError
-          ? error.message
+          ? humanizeApiErrorMessage(error.message)
           : "An unexpected error occurred while creating the contract.";
       setPhase({ status: "error", message, contractId: null });
       return;
@@ -87,7 +132,9 @@ export default function UploadPage() {
       navigate(`/contracts/${contractId}`);
     } catch (error: unknown) {
       const message =
-        error instanceof ApiError ? error.message : "An unexpected error occurred during analysis.";
+        error instanceof ApiError
+          ? humanizeApiErrorMessage(error.message)
+          : "An unexpected error occurred during analysis.";
       setPhase({ status: "error", message, contractId });
     }
   }
@@ -115,7 +162,10 @@ export default function UploadPage() {
             rows={12}
             placeholder="Paste the full contract text here..."
             value={contractText}
-            onChange={(event) => setContractText(event.target.value)}
+            onChange={(event) => {
+              setContractText(event.target.value);
+              if (sourceFilename) setFileEdited(true);
+            }}
             disabled={busy}
             required
           />
@@ -131,8 +181,14 @@ export default function UploadPage() {
                 disabled={busy}
               />
             </label>
-            {sourceFilename && <span className="form-file-name">{sourceFilename}</span>}
+            {sourceFilename && (
+              <span className="form-file-name">
+                {sourceFilename}
+                {fileEdited ? " (edited)" : ""}
+              </span>
+            )}
           </div>
+          {fileNotice && <p className="form-hint" role="alert">{fileNotice}</p>}
         </div>
 
         <div className="form-row">
@@ -149,6 +205,7 @@ export default function UploadPage() {
               disabled={busy}
               required
             />
+            <p className="form-hint">Identifies this engagement in your own records. The default is safe to leave as-is.</p>
           </div>
 
           <div className="form-field">
@@ -167,6 +224,7 @@ export default function UploadPage() {
               <option value="payout">Payout</option>
               <option value="subscription">Subscription</option>
             </select>
+            <p className="form-hint">Which kind of Razorpay record to cross-check this contract against.</p>
           </div>
 
           <div className="form-field">
@@ -182,6 +240,7 @@ export default function UploadPage() {
               disabled={busy}
               required
             />
+            <p className="form-hint">The Razorpay payout or subscription id to check terms against. The default is a safe placeholder.</p>
           </div>
         </div>
 
@@ -196,7 +255,11 @@ export default function UploadPage() {
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? "Submitting..." : "Submit for analysis"}
+          {phase.status === "creating"
+            ? "Creating..."
+            : phase.status === "analyzing"
+              ? "Analyzing..."
+              : "Submit for analysis"}
         </button>
 
         {phase.status === "creating" && <LoadingState label="Creating your contract record..." />}

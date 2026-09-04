@@ -187,6 +187,12 @@ export interface AuditLogEntry {
   model_name: string;
   latency_ms: number;
   created_at: string;
+  // Per-Contract hash-chain fields (add-audit-log-hash-chain). Null for an
+  // entry written before hash-chain verification existed (chain-exempt) -
+  // rendering them in the React UI is not required by this change.
+  prev_hash: string | null;
+  entry_hash: string | null;
+  chain_sequence: number | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Report{% endblock %} — Payment Terms Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+  >
   <link rel="stylesheet" href="{% static 'report_ui/css/report.css' %}">
 </head>
 <body>
@@ -12,10 +18,22 @@
       <p class="site-title">Payment Terms &amp; Vendor Risk Analyzer — Report UI</p>
       <nav class="site-nav" aria-label="Main">
         {% if contract %}
-          <a href="{% url 'contract_report' contract_id=contract.id %}">Reasoning chain</a>
-          <a href="{% url 'contract_audit_log' contract_id=contract.id %}">Audit log</a>
+          <a
+            href="{% url 'contract_report' contract_id=contract.id %}"
+            class="{% if active_nav == 'report' %}is-active{% endif %}"
+            {% if active_nav == 'report' %}aria-current="page"{% endif %}
+          >Reasoning chain</a>
+          <a
+            href="{% url 'contract_audit_log' contract_id=contract.id %}"
+            class="{% if active_nav == 'audit_log' %}is-active{% endif %}"
+            {% if active_nav == 'audit_log' %}aria-current="page"{% endif %}
+          >Audit log</a>
         {% endif %}
-        <a href="{% url 'guardrail_verification' %}">Guardrail verification</a>
+        <a
+          href="{% url 'guardrail_verification' %}"
+          class="{% if active_nav == 'guardrail' %}is-active{% endif %}"
+          {% if active_nav == 'guardrail' %}aria-current="page"{% endif %}
+        >Guardrail verification</a>
       </nav>
     </div>
   </header>

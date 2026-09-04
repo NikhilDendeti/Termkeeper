@@ -8,6 +8,7 @@ import {
   getContractReasoningChain,
 } from "../api/client";
 import type { AuditLogEntry, ClauseReasoningChain, ContractDocument } from "../api/types";
+import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import Icon from "../components/Icon";
 import LoadingState from "../components/LoadingState";
@@ -22,17 +23,22 @@ import {
   termTypeLabel,
 } from "../utils/format";
 
-type LoadState =
+type SectionState<T> =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | {
-      status: "ready";
-      chain: ClauseReasoningChain[];
-      auditTrail: AuditLogEntry[];
-      document: ContractDocument;
-    };
+  | { status: "ready"; data: T };
 
 type Tab = "document" | "reasoning-chain" | "audit-trail";
+
+const TAB_IDS: Record<Tab, { tab: string; panel: string }> = {
+  document: { tab: "tab-document", panel: "panel-document" },
+  "reasoning-chain": { tab: "tab-reasoning-chain", panel: "panel-reasoning-chain" },
+  "audit-trail": { tab: "tab-audit-trail", panel: "panel-audit-trail" },
+};
+
+function errorMessage(error: unknown): string {
+  return error instanceof ApiError ? error.message : "An unexpected error occurred.";
+}
 
 /**
  * Selecting a contract shows its original document, its full reasoning
@@ -41,33 +47,84 @@ type Tab = "document" | "reasoning-chain" | "audit-trail";
  * full reasoning chain" and "Audit trail is reachable per contract" - the
  * document tab itself predates a formal spec (added directly in response
  * to a real gap: nothing surfaced the original submitted text anywhere).
+ *
+ * The three sections are fetched and retried independently (three separate
+ * effects/reload tokens, not one combined Promise.all) so a failure or slow
+ * response on one endpoint never blocks the other two, which may already
+ * have data to show.
  */
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [state, setState] = useState<LoadState>({ status: "loading" });
   const [tab, setTab] = useState<Tab>("document");
-  const [reloadToken, setReloadToken] = useState(0);
+
+  const [documentState, setDocumentState] = useState<SectionState<ContractDocument>>({
+    status: "loading",
+  });
+  const [docReloadToken, setDocReloadToken] = useState(0);
+
+  const [chainState, setChainState] = useState<SectionState<ClauseReasoningChain[]>>({
+    status: "loading",
+  });
+  const [chainReloadToken, setChainReloadToken] = useState(0);
+
+  const [auditState, setAuditState] = useState<SectionState<AuditLogEntry[]>>({
+    status: "loading",
+  });
+  const [auditReloadToken, setAuditReloadToken] = useState(0);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    setState({ status: "loading" });
+    setDocumentState({ status: "loading" });
 
-    Promise.all([getContractReasoningChain(id), getContractAuditTrail(id), getContractDocument(id)])
-      .then(([chain, auditTrail, document]) => {
-        if (!cancelled) setState({ status: "ready", chain, auditTrail, document });
+    getContractDocument(id)
+      .then((document) => {
+        if (!cancelled) setDocumentState({ status: "ready", data: document });
       })
       .catch((error: unknown) => {
-        if (cancelled) return;
-        const message =
-          error instanceof ApiError ? error.message : "An unexpected error occurred.";
-        setState({ status: "error", message });
+        if (!cancelled) setDocumentState({ status: "error", message: errorMessage(error) });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [id, reloadToken]);
+  }, [id, docReloadToken]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setChainState({ status: "loading" });
+
+    getContractReasoningChain(id)
+      .then((chain) => {
+        if (!cancelled) setChainState({ status: "ready", data: chain });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setChainState({ status: "error", message: errorMessage(error) });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, chainReloadToken]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setAuditState({ status: "loading" });
+
+    getContractAuditTrail(id)
+      .then((auditTrail) => {
+        if (!cancelled) setAuditState({ status: "ready", data: auditTrail });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setAuditState({ status: "error", message: errorMessage(error) });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, auditReloadToken]);
 
   return (
     <>
@@ -84,48 +141,87 @@ export default function ContractDetailPage() {
         </div>
       </div>
 
-      {state.status === "loading" && <LoadingState label="Loading contract..." />}
+      <div className="tab-bar" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          id={TAB_IDS.document.tab}
+          aria-controls={TAB_IDS.document.panel}
+          aria-selected={tab === "document"}
+          className={tab === "document" ? "tab-button is-active" : "tab-button"}
+          onClick={() => setTab("document")}
+        >
+          Document
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id={TAB_IDS["reasoning-chain"].tab}
+          aria-controls={TAB_IDS["reasoning-chain"].panel}
+          aria-selected={tab === "reasoning-chain"}
+          className={tab === "reasoning-chain" ? "tab-button is-active" : "tab-button"}
+          onClick={() => setTab("reasoning-chain")}
+        >
+          Reasoning chain
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id={TAB_IDS["audit-trail"].tab}
+          aria-controls={TAB_IDS["audit-trail"].panel}
+          aria-selected={tab === "audit-trail"}
+          className={tab === "audit-trail" ? "tab-button is-active" : "tab-button"}
+          onClick={() => setTab("audit-trail")}
+        >
+          Audit trail
+        </button>
+      </div>
 
-      {state.status === "error" && (
-        <ErrorState message={state.message} onRetry={() => setReloadToken((n) => n + 1)} />
+      {tab === "document" && (
+        <div role="tabpanel" id={TAB_IDS.document.panel} aria-labelledby={TAB_IDS.document.tab}>
+          {documentState.status === "loading" && <LoadingState label="Loading document..." />}
+          {documentState.status === "error" && (
+            <ErrorState
+              message={documentState.message}
+              onRetry={() => setDocReloadToken((n) => n + 1)}
+            />
+          )}
+          {documentState.status === "ready" && <DocumentSection document={documentState.data} />}
+        </div>
       )}
 
-      {state.status === "ready" && (
-        <>
-          <div className="tab-bar" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "document"}
-              className={tab === "document" ? "tab-button is-active" : "tab-button"}
-              onClick={() => setTab("document")}
-            >
-              Document
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "reasoning-chain"}
-              className={tab === "reasoning-chain" ? "tab-button is-active" : "tab-button"}
-              onClick={() => setTab("reasoning-chain")}
-            >
-              Reasoning chain
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "audit-trail"}
-              className={tab === "audit-trail" ? "tab-button is-active" : "tab-button"}
-              onClick={() => setTab("audit-trail")}
-            >
-              Audit trail
-            </button>
-          </div>
+      {tab === "reasoning-chain" && (
+        <div
+          role="tabpanel"
+          id={TAB_IDS["reasoning-chain"].panel}
+          aria-labelledby={TAB_IDS["reasoning-chain"].tab}
+        >
+          {chainState.status === "loading" && <LoadingState label="Loading reasoning chain..." />}
+          {chainState.status === "error" && (
+            <ErrorState
+              message={chainState.message}
+              onRetry={() => setChainReloadToken((n) => n + 1)}
+            />
+          )}
+          {chainState.status === "ready" && <ReasoningChainSection chain={chainState.data} />}
+        </div>
+      )}
 
-          {tab === "document" && <DocumentSection document={state.document} />}
-          {tab === "reasoning-chain" && <ReasoningChainSection chain={state.chain} />}
-          {tab === "audit-trail" && <AuditTrailSection entries={state.auditTrail} />}
-        </>
+      {tab === "audit-trail" && (
+        <div
+          role="tabpanel"
+          id={TAB_IDS["audit-trail"].panel}
+          aria-labelledby={TAB_IDS["audit-trail"].tab}
+        >
+          {auditState.status === "loading" && <LoadingState label="Loading audit trail..." />}
+          {auditState.status === "error" && (
+            <ErrorState
+              message={auditState.message}
+              onRetry={() => setAuditReloadToken((n) => n + 1)}
+            />
+          )}
+          {auditState.status === "ready" && <AuditTrailSection entries={auditState.data} />}
+        </div>
       )}
     </>
   );
@@ -180,14 +276,7 @@ function DocumentSection({ document }: { document: ContractDocument }) {
 
 function ReasoningChainSection({ chain }: { chain: ClauseReasoningChain[] }) {
   if (chain.length === 0) {
-    return (
-      <div className="state-block empty-block card">
-        <span className="state-block-icon" aria-hidden="true">
-          <Icon name="file-text" size={20} />
-        </span>
-        <p className="state-block-title">No clauses found for this contract.</p>
-      </div>
-    );
+    return <EmptyState icon="file-text" title="No clauses found for this contract." />;
   }
 
   return (
@@ -198,11 +287,12 @@ function ReasoningChainSection({ chain }: { chain: ClauseReasoningChain[] }) {
             <summary className="clause-entry-summary">
               <span className="clause-entry-summary-left">
                 <span className="clause-index">Clause {entry.sequence_index}</span>
-                {entry.classification_needs_human_review ? (
+                {entry.risk_assessment ? (
+                  <SeverityBadge severity={entry.risk_assessment.severity} />
+                ) : entry.classification_needs_human_review ? (
                   <SeverityBadge severity="needs_human_review" />
-                ) : (
-                  <span className="clause-snippet">{clauseTypeLabel(entry.clause_type)}</span>
-                )}
+                ) : null}
+                <span className="clause-snippet">{clauseTypeLabel(entry.clause_type)}</span>
               </span>
               <span className="clause-entry-summary-right">
                 <Icon name="chevron-right" size={16} className="clause-disclosure-icon" />
@@ -340,14 +430,7 @@ function ReasoningChainSection({ chain }: { chain: ClauseReasoningChain[] }) {
 
 function AuditTrailSection({ entries }: { entries: AuditLogEntry[] }) {
   if (entries.length === 0) {
-    return (
-      <div className="state-block empty-block card">
-        <span className="state-block-icon" aria-hidden="true">
-          <Icon name="clock" size={20} />
-        </span>
-        <p className="state-block-title">No audit log entries found for this contract.</p>
-      </div>
-    );
+    return <EmptyState icon="clock" title="No audit log entries found for this contract." />;
   }
 
   return (
@@ -389,6 +472,7 @@ function AuditTrailSection({ entries }: { entries: AuditLogEntry[] }) {
             <summary className="raw-response-toggle">
               <Icon name="file-text" size={13} />
               Raw model response
+              <Icon name="chevron-right" size={13} className="clause-disclosure-icon" />
             </summary>
             <pre className="raw-response-pre" data-testid="raw-response">
               {JSON.stringify(entry.llm_response_raw, null, 2)}

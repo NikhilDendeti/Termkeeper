@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from django.urls import reverse
 
 from contracts.tests.factories import ClauseFactory, ContractFactory
 
 pytestmark = pytest.mark.django_db
+
+
+def _is_active(content: str, href: str) -> bool:
+    """True if the nav link for `href` carries `class="is-active"`.
+
+    The `<a>` tag's attributes span multiple lines in base.html, so a plain
+    substring check on `href="...">` would miss the class - search past the
+    href for the class attribute on the same tag instead.
+    """
+    return re.search(rf'href="{re.escape(href)}"\s*class="is-active"', content) is not None
 
 
 class TestCrossPageNavigation:
@@ -51,3 +63,40 @@ class TestCrossPageNavigation:
         # The guardrail page has no contract in context, so it shows no
         # contract-scoped links - only itself in the nav.
         assert f'href="{guardrail_url}"' in response.content.decode()
+
+
+class TestActiveNavItem:
+    """MEDIUM finding: the nav link for the current page carries `is-active`,
+    and no other nav link does."""
+
+    def test_reasoning_chain_page_marks_its_own_link_active(self, client):
+        contract = ContractFactory()
+        ClauseFactory(contract=contract, sequence_index=0)
+        report_url = reverse("contract_report", kwargs={"contract_id": contract.id})
+        audit_log_url = reverse("contract_audit_log", kwargs={"contract_id": contract.id})
+        guardrail_url = reverse("guardrail_verification")
+
+        content = client.get(report_url).content.decode()
+
+        assert _is_active(content, report_url)
+        assert not _is_active(content, audit_log_url)
+        assert not _is_active(content, guardrail_url)
+
+    def test_audit_log_page_marks_its_own_link_active(self, client):
+        contract = ContractFactory()
+        report_url = reverse("contract_report", kwargs={"contract_id": contract.id})
+        audit_log_url = reverse("contract_audit_log", kwargs={"contract_id": contract.id})
+        guardrail_url = reverse("guardrail_verification")
+
+        content = client.get(audit_log_url).content.decode()
+
+        assert _is_active(content, audit_log_url)
+        assert not _is_active(content, report_url)
+        assert not _is_active(content, guardrail_url)
+
+    def test_guardrail_page_marks_its_own_link_active(self, client):
+        guardrail_url = reverse("guardrail_verification")
+
+        content = client.get(guardrail_url).content.decode()
+
+        assert _is_active(content, guardrail_url)

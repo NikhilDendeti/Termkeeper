@@ -52,6 +52,15 @@ export default function GuardrailPage() {
             every load - not a cached claim.
           </p>
         </div>
+        {state.status === "ready" && (
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            onClick={() => setReloadToken((n) => n + 1)}
+          >
+            Re-run scan
+          </button>
+        )}
       </div>
 
       {state.status === "loading" && <LoadingState label="Running guardrail scan..." />}
@@ -67,7 +76,7 @@ export default function GuardrailPage() {
               <p className="stat-tile-label">Status</p>
               <p
                 className={`stat-tile-value ${
-                  state.result.passed ? "stat-tile-value--low" : "stat-tile-value--critical"
+                  state.result.passed ? "stat-tile-value--pass" : "stat-tile-value--fail"
                 }`}
               >
                 {state.result.passed ? "Pass" : "Fail"}
@@ -81,7 +90,7 @@ export default function GuardrailPage() {
               <p className="stat-tile-label">Write-call violations</p>
               <p
                 className={`stat-tile-value font-numeric${
-                  state.result.violations.length > 0 ? " is-attention" : ""
+                  state.result.violations.length > 0 ? " stat-tile-value--fail" : ""
                 }`}
               >
                 {state.result.violations.length}

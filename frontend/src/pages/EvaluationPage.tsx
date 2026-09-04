@@ -6,6 +6,7 @@ import ErrorState from "../components/ErrorState";
 import Icon from "../components/Icon";
 import LoadingState from "../components/LoadingState";
 import { formatDateTime, formatPercent } from "../utils/format";
+import { qualityToSeverityBand } from "../utils/riskBand";
 
 type LoadState =
   | { status: "loading" }
@@ -119,28 +120,43 @@ function EvalRunSummary({ evalRun }: { evalRun: EvalRun }) {
         <div className="stat-grid" data-testid="risk-severity-stats">
           <div className="card stat-tile">
             <p className="stat-tile-label">Precision</p>
-            <p className="stat-tile-value font-numeric">{formatPercent(risk.precision)}</p>
+            <p className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(risk.precision)}`}>
+              {formatPercent(risk.precision)}
+            </p>
           </div>
           <div className="card stat-tile">
             <p className="stat-tile-label">Recall</p>
-            <p className="stat-tile-value font-numeric">{formatPercent(risk.recall)}</p>
+            <p className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(risk.recall)}`}>
+              {formatPercent(risk.recall)}
+            </p>
           </div>
           <div className="card stat-tile">
             <p className="stat-tile-label">F1</p>
-            <p className="stat-tile-value font-numeric">{formatPercent(risk.f1)}</p>
+            <p className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(risk.f1)}`}>
+              {formatPercent(risk.f1)}
+            </p>
           </div>
           <div className="card stat-tile">
             <p className="stat-tile-label">Severity calibration</p>
-            <p className="stat-tile-value font-numeric">
+            <p
+              className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(
+                evalRun.severity_calibration_score,
+              )}`}
+            >
               {formatPercent(evalRun.severity_calibration_score)}
             </p>
             <p className="stat-tile-hint">1.0 = exact severity match</p>
           </div>
           <div className="card stat-tile">
             <p className="stat-tile-label">Human-review recall</p>
-            <p className="stat-tile-value font-numeric">
+            <p
+              className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(
+                risk.human_review_recall,
+              )}`}
+            >
               {formatPercent(risk.human_review_recall)}
             </p>
+            <p className="stat-tile-hint">Share of true needs-review clauses actually flagged</p>
           </div>
         </div>
         <p className="empty-note">
@@ -155,11 +171,15 @@ function EvalRunSummary({ evalRun }: { evalRun: EvalRun }) {
         <div className="stat-grid" data-testid="mismatch-stats">
           <div className="card stat-tile">
             <p className="stat-tile-label">Precision</p>
-            <p className="stat-tile-value font-numeric">{formatPercent(mismatch.precision)}</p>
+            <p className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(mismatch.precision)}`}>
+              {formatPercent(mismatch.precision)}
+            </p>
           </div>
           <div className="card stat-tile">
             <p className="stat-tile-label">Recall</p>
-            <p className="stat-tile-value font-numeric">{formatPercent(mismatch.recall)}</p>
+            <p className={`stat-tile-value font-numeric stat-tile-value--${qualityToSeverityBand(mismatch.recall)}`}>
+              {formatPercent(mismatch.recall)}
+            </p>
           </div>
         </div>
         <p className="empty-note">
@@ -225,7 +245,7 @@ function CostBreakdown({
   const keys = Object.keys(entries);
 
   return (
-    <div style={{ marginTop: "var(--space-4)" }}>
+    <div className="cost-breakdown">
       <p className="reasoning-stage-label">{title}</p>
       {keys.length === 0 ? (
         <p className="empty-note">No entries.</p>

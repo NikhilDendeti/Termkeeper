@@ -11,9 +11,9 @@
 <section class="report-summary">
   <h2>Overall report</h2>
   {% if report.overall_risk_score is not None %}
-    <p>Overall risk score: <strong>{{ report.overall_risk_score|floatformat:2 }}</strong></p>
+    <p>Overall risk score: <strong class="report-summary-score">{{ report.overall_risk_score|floatformat:2 }}</strong></p>
   {% else %}
-    <p>Overall risk score: <strong>N/A</strong> (no scored clauses yet)</p>
+    <p>Overall risk score: <strong class="report-summary-score">N/A</strong> (no scored clauses yet)</p>
   {% endif %}
   <p>
     {{ report.flagged_clauses|length }} scored clause(s) &middot;

@@ -88,6 +88,21 @@ describe("EvaluationPage", () => {
     expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument();
   });
 
+  it("color-codes quality metrics by how good the score is, not by the risk severity ramp", async () => {
+    const response: LatestEvalRunResponse = { eval_run: SAMPLE_EVAL_RUN };
+    mockedGetLatestEvalRun.mockResolvedValueOnce(response);
+
+    render(<EvaluationPage />);
+    await waitFor(() => expect(screen.getByTestId("risk-severity-stats")).toBeInTheDocument());
+
+    // F1 of 0.847 is a good score (>=0.625) - should read as a "medium"-or-better
+    // band, i.e. NOT the same red "critical" a 0.847 *risk* score would be.
+    const stats = screen.getByTestId("risk-severity-stats");
+    const values = stats.querySelectorAll(".stat-tile-value");
+    const classNames = Array.from(values).map((el) => el.className);
+    expect(classNames.some((c) => c.includes("stat-tile-value--critical"))).toBe(false);
+  });
+
   it("shows an explicit empty state, not a spinner or error, when no eval run exists yet", async () => {
     const response: LatestEvalRunResponse = { eval_run: null };
     mockedGetLatestEvalRun.mockResolvedValueOnce(response);

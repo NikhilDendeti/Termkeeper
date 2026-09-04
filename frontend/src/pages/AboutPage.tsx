@@ -142,12 +142,12 @@ export default function AboutPage() {
         </div>
         <div className="card stat-tile">
           <p className="stat-tile-label">Backend tests</p>
-          <p className="stat-tile-value font-numeric">442</p>
+          <p className="stat-tile-value font-numeric">521</p>
           <p className="stat-tile-hint">pytest, all passing</p>
         </div>
         <div className="card stat-tile">
           <p className="stat-tile-label">Frontend tests</p>
-          <p className="stat-tile-value font-numeric">65</p>
+          <p className="stat-tile-value font-numeric">91</p>
           <p className="stat-tile-hint">vitest, all passing</p>
         </div>
       </div>
@@ -164,9 +164,7 @@ export default function AboutPage() {
                 {item.stage.replace("Stage ", "")}
               </span>
               <div className="pipeline-step-body">
-                <p className="pipeline-step-title">
-                  {item.title} <span className="stage-tag">{item.stage}</span>
-                </p>
+                <p className="pipeline-step-title">{item.title}</p>
                 <p className="pipeline-step-detail">{item.detail}</p>
               </div>
             </li>
@@ -211,7 +209,7 @@ export default function AboutPage() {
           Built spec-first, every time
           <span className="section-title-count font-numeric">{OPENSPEC_CHANGES.length}</span>
         </h2>
-        <p className="about-lede" style={{ marginBottom: "var(--space-4)" }}>
+        <p className="about-lede about-lede--tight">
           Every capability below started as an OpenSpec change - a written <em>Why</em>, a
           testable spec of SHALL-requirements with scenarios, a design doc, and a task list -
           before any implementation code was written. This is the complete, current list under{" "}

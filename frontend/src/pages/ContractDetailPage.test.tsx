@@ -106,6 +106,9 @@ const auditEntry: AuditLogEntry = {
   model_name: "claude-test",
   latency_ms: 512,
   created_at: "2026-01-01T00:05:00Z",
+  prev_hash: null,
+  entry_hash: null,
+  chain_sequence: null,
 };
 
 describe("ContractDetailPage", () => {
@@ -324,12 +327,54 @@ describe("ContractDetailPage", () => {
     expect(within(list).getByTestId("raw-response").textContent).toContain("payment_schedule");
   });
 
-  it("shows an error state when either request fails", async () => {
+  it("isolates a failure to the tab that failed, leaving the other tabs usable", async () => {
     mockedGetChain.mockRejectedValueOnce(new Error("boom"));
+    mockedGetAuditTrail.mockResolvedValueOnce([auditEntry]);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    // The default Document tab is unaffected by the reasoning-chain failure.
+    await waitFor(() => expect(screen.getByTestId("document-raw-text")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("tab", { name: /reasoning chain/i }));
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeInTheDocument());
+
+    // Audit trail, unaffected by either other request, still works.
+    await user.click(screen.getByRole("tab", { name: /audit trail/i }));
+    await waitFor(() => expect(screen.getByTestId("audit-list")).toBeInTheDocument());
+  });
+
+  it("retries only the failed section, without disturbing an already-loaded tab", async () => {
+    mockedGetChain.mockRejectedValueOnce(new Error("boom"));
+    mockedGetChain.mockResolvedValueOnce([scoredClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId("document-raw-text")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("tab", { name: /reasoning chain/i }));
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
+
+    // The Document tab's already-fetched data was never touched by the retry.
+    await user.click(screen.getByRole("tab", { name: /document/i }));
+    expect(screen.getByTestId("document-raw-text")).toBeInTheDocument();
+  });
+
+  it("wires each tab button to its panel via ARIA (role=tabpanel, aria-controls/aria-labelledby)", async () => {
+    mockedGetChain.mockResolvedValueOnce([scoredClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
     renderPage();
 
-    await waitFor(() => expect(screen.getByTestId("error-state")).toBeInTheDocument());
+    const documentTab = await screen.findByRole("tab", { name: /document/i });
+    const panel = screen.getByRole("tabpanel");
+    expect(documentTab).toHaveAttribute("aria-controls", panel.id);
+    expect(panel).toHaveAttribute("aria-labelledby", documentTab.id);
   });
 });

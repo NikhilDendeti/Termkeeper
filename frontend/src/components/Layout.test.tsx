@@ -41,4 +41,17 @@ describe("Layout", () => {
     expect(screen.getByRole("link", { name: "Guardrail Status" })).toHaveClass("is-active");
     expect(screen.getByRole("link", { name: "Contracts" })).not.toHaveClass("is-active");
   });
+
+  it("renders Upload as a primary-button CTA, distinct from the wayfinding links", () => {
+    renderLayout();
+    const uploadLink = screen.getByRole("link", { name: "Upload" });
+    expect(uploadLink).toHaveClass("btn");
+    expect(uploadLink).toHaveClass("btn-primary");
+    expect(uploadLink).not.toHaveClass("app-nav-link");
+  });
+
+  it("sets a route-specific document title", () => {
+    renderLayout("/guardrail");
+    expect(document.title).toContain("Guardrail verification");
+  });
 });

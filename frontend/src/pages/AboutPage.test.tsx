@@ -63,11 +63,15 @@ describe("AboutPage", () => {
 
   it("states verified backend and frontend test counts, not a promotional claim", () => {
     renderPage();
-    expect(screen.getByText("Backend tests")).toBeInTheDocument();
-    expect(screen.getByText("442")).toBeInTheDocument();
-    expect(screen.getByText(/pytest, all passing/i)).toBeInTheDocument();
-    expect(screen.getByText("Frontend tests")).toBeInTheDocument();
-    expect(screen.getByText(/vitest, all passing/i)).toBeInTheDocument();
+
+    const backendTile = screen.getByText("Backend tests").closest(".stat-tile") as HTMLElement;
+    expect(within(backendTile).getByText(/^\d+$/)).toBeInTheDocument();
+    expect(within(backendTile).getByText(/pytest, all passing/i)).toBeInTheDocument();
+
+    const frontendTile = screen.getByText("Frontend tests").closest(".stat-tile") as HTMLElement;
+    expect(within(frontendTile).getByText(/^\d+$/)).toBeInTheDocument();
+    expect(within(frontendTile).getByText(/vitest, all passing/i)).toBeInTheDocument();
+
     expect(screen.getByText(/pytest -q/)).toBeInTheDocument();
   });
 

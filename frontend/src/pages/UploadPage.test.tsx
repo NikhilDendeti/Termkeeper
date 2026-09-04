@@ -84,6 +84,51 @@ describe("UploadPage", () => {
     expect(mockedCreateContract).not.toHaveBeenCalled();
   });
 
+  it("shows a visible message and does not submit when the contract text is whitespace-only", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText(/contract text/i), "   ");
+    await user.click(screen.getByRole("button", { name: /submit for analysis/i }));
+
+    expect(mockedCreateContract).not.toHaveBeenCalled();
+    expect(screen.getByTestId("error-state")).toHaveTextContent(/contract text cannot be blank/i);
+  });
+
+  it("shows the field-labeled version of a raw backend validation error", async () => {
+    const user = userEvent.setup();
+    mockedCreateContract.mockRejectedValueOnce(
+      new ApiError("raw_text: This field may not be blank.", 400),
+    );
+
+    renderPage();
+    await user.type(screen.getByLabelText(/contract text/i), "1. PAYMENT. Pays monthly.");
+    await user.click(screen.getByRole("button", { name: /submit for analysis/i }));
+
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeInTheDocument());
+    expect(screen.getByText(/^contract text: this field may not be blank\.$/i)).toBeInTheDocument();
+  });
+
+  it("shows a phase-specific button label while creating and while analyzing", async () => {
+    const user = userEvent.setup();
+    mockedCreateContract.mockResolvedValueOnce({ contract_id: "c1" });
+    let resolveAnalyze!: (report: ContractReport) => void;
+    mockedAnalyzeContract.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveAnalyze = resolve;
+      }),
+    );
+
+    renderPage();
+    await user.type(screen.getByLabelText(/contract text/i), "1. PAYMENT. Pays monthly.");
+    await user.click(screen.getByRole("button", { name: /submit for analysis/i }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Analyzing..." })).toBeInTheDocument());
+
+    resolveAnalyze(sampleReport);
+    await waitFor(() => expect(screen.getByText("Contract detail page for c1")).toBeInTheDocument());
+  });
+
   it("shows a specific, explanatory loading state while analysis is in progress", async () => {
     const user = userEvent.setup();
     mockedCreateContract.mockResolvedValueOnce({ contract_id: "c1" });
@@ -175,5 +220,60 @@ describe("UploadPage", () => {
       ),
     );
     expect(screen.getByText("contract.txt")).toBeInTheDocument();
+  });
+
+  it("marks the loaded filename as edited once the textarea is changed by hand", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const file = new File(["1. PAYMENT. From a file."], "contract.txt", { type: "text/plain" });
+    await user.upload(screen.getByLabelText(/choose a \.txt file/i), file);
+    await waitFor(() => expect(screen.getByText("contract.txt")).toBeInTheDocument());
+
+    await user.type(screen.getByLabelText(/contract text/i), " Extra.");
+
+    expect(screen.getByText("contract.txt (edited)")).toBeInTheDocument();
+  });
+
+  it("warns when a selected .txt-named file reports a non-text MIME type", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Same extension the accept filter requires, but a binary-looking
+    // declared type - e.g. a renamed or misidentified file.
+    const file = new File(["%PDF-1.4 binary..."], "contract.txt", {
+      type: "application/octet-stream",
+    });
+    await user.upload(screen.getByLabelText(/choose a \.txt file/i), file);
+
+    await waitFor(() =>
+      expect(screen.getByText(/doesn't look like a plain-text file/i)).toBeInTheDocument(),
+    );
+  });
+
+  it("surfaces a message instead of failing silently when the file can't be read", async () => {
+    const originalFileReader = globalThis.FileReader;
+    class ErroringFileReader {
+      onerror: (() => void) | null = null;
+      onload: (() => void) | null = null;
+      result: string | ArrayBuffer | null = null;
+      readAsText() {
+        setTimeout(() => this.onerror?.(), 0);
+      }
+    }
+    // @ts-expect-error - deliberately minimal stub for this one test
+    globalThis.FileReader = ErroringFileReader;
+
+    try {
+      const user = userEvent.setup();
+      renderPage();
+
+      const file = new File(["1. PAYMENT."], "contract.txt", { type: "text/plain" });
+      await user.upload(screen.getByLabelText(/choose a \.txt file/i), file);
+
+      await waitFor(() => expect(screen.getByText(/could not read/i)).toBeInTheDocument());
+    } finally {
+      globalThis.FileReader = originalFileReader;
+    }
   });
 });
