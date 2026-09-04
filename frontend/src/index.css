@@ -17,8 +17,10 @@
     12. Clause reasoning chain
     13. Audit trail
     14. Guardrail page
-    15. Responsive overrides
-    16. Reduced motion / print
+    15. About page
+    16. Upload page
+    17. Responsive overrides
+    18. Reduced motion / print
    ========================================================================= */
 
 /* 1. Tokens ------------------------------------------------------------- */
@@ -89,11 +91,19 @@
   --color-severity-review-fg: #5b21b6;
   --color-severity-review-border: #c7b3f2;
 
-  /* Type */
+  /* Type - Inter carries UI text (labels, body, buttons); Manrope is
+     reserved for a short list of high-signal moments (brand, page titles,
+     stat numbers, pipeline-step indices) so the pairing reads as a
+     deliberate choice rather than "every heading gets its own font".
+     JetBrains Mono replaces the system mono stack for anything that is
+     literally data - IDs, timestamps, file paths, raw model output - which
+     matters more in an audit tool than it would elsewhere. */
   --font-sans:
     "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display:
+    "Manrope", "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono:
-    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
@@ -282,7 +292,8 @@ svg {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 800;
   font-size: var(--text-lg);
   letter-spacing: var(--tracking-tight);
   color: var(--color-text-primary);
@@ -349,8 +360,9 @@ svg {
 }
 
 .page-title {
+  font-family: var(--font-display);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
   margin-bottom: var(--space-1);
@@ -626,6 +638,13 @@ svg {
   border-style: dashed;
 }
 
+.state-block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
 /* 10. Stat row -------------------------------------------------------------- */
 
 .stat-grid {
@@ -649,8 +668,9 @@ svg {
 }
 
 .stat-tile-value {
+  font-family: var(--font-display);
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: var(--tracking-tight);
   color: var(--color-text-primary);
   line-height: var(--leading-tight);
@@ -658,6 +678,26 @@ svg {
 
 .stat-tile-value.is-attention {
   color: var(--color-severity-high-fg);
+}
+
+/* Score-band coloring for stat tiles that summarize a severity score
+   (e.g. the list page's average-risk-score tile) - same fg tokens the
+   severity badges use, so a glance at the header already hints at the
+   portfolio's overall shape before scanning individual rows. */
+.stat-tile-value--low {
+  color: var(--color-severity-low-fg);
+}
+
+.stat-tile-value--medium {
+  color: var(--color-severity-medium-fg);
+}
+
+.stat-tile-value--high {
+  color: var(--color-severity-high-fg);
+}
+
+.stat-tile-value--critical {
+  color: var(--color-severity-critical-fg);
 }
 
 .stat-tile-hint {
@@ -675,6 +715,7 @@ svg {
 }
 
 .contract-card-wrap {
+  border-left-width: 3px;
   transition: border-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
@@ -682,6 +723,30 @@ svg {
 .contract-card-wrap:hover {
   border-color: var(--color-border-strong);
   box-shadow: var(--shadow-sm);
+}
+
+/* Left-edge severity accent, colored from `scoreToSeverityBand` - a list of
+   thirty contracts is scanned by eye, not read row by row, so the color a
+   reader needs is legible from the strip alone before the badge text
+   registers. `--unscored` intentionally reads as neutral, not alarming. */
+.contract-card-wrap--unscored {
+  border-left-color: var(--color-border);
+}
+
+.contract-card-wrap--low {
+  border-left-color: var(--color-severity-low-fg);
+}
+
+.contract-card-wrap--medium {
+  border-left-color: var(--color-severity-medium-fg);
+}
+
+.contract-card-wrap--high {
+  border-left-color: var(--color-severity-high-fg);
+}
+
+.contract-card-wrap--critical {
+  border-left-color: var(--color-severity-critical-fg);
 }
 
 .contract-card-wrap:has(.contract-card:focus-visible) {
@@ -744,6 +809,30 @@ svg {
 .score-value.is-empty {
   color: var(--color-text-tertiary);
   font-weight: 500;
+}
+
+/* A distinct, explicit affordance to jump straight to a contract's Document
+   tab - separate from clicking the card itself (which lands there too,
+   since Document is the detail page's default tab) but worth surfacing on
+   its own: a reader shouldn't have to already know that to find the
+   original agreement text. Rendered as a sibling of `.contract-card`
+   (not nested inside it) since both are `<Link>` elements - a nested
+   anchor is invalid HTML. */
+.contract-card-doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5) var(--space-4);
+  margin-top: calc(var(--space-2) * -1);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.contract-card-doc-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
 }
 
 /* 12. Clause reasoning chain ---------------------------------------------------- */
@@ -839,6 +928,66 @@ details[open] > .clause-entry-summary .clause-disclosure-icon {
   font-size: var(--text-base);
   line-height: var(--leading-relaxed);
   white-space: pre-wrap;
+}
+
+.document-card {
+  padding: var(--space-5);
+}
+
+/* Contract-level needs_human_review banner - distinct from the per-clause
+   severity-badge "needs_human_review" concept above (a classification
+   outcome for one clause). This is a whole-document flag set by
+   contracts.services.mark_contract_needs_human_review when stage-1
+   segmentation fails verbatim-matching twice, surfaced here so a viewer
+   sees *why*, not just a generic badge. Reuses --color-warning* (the
+   guardrail banner's --color-error* sibling) rather than the severity ramp,
+   matching the ramp's own "needs_human_review sits off this ramp" rule. */
+.needs-review-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.needs-review-banner-icon {
+  flex: none;
+  margin-top: 0.15rem;
+}
+
+.needs-review-banner-title {
+  font-weight: 700;
+  margin: 0 0 var(--space-1);
+}
+
+.needs-review-banner-reason {
+  margin: 0;
+}
+
+.document-meta-grid {
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.document-raw-text {
+  margin-top: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+  font-family: inherit;
+  max-height: 720px;
+  overflow-y: auto;
 }
 
 .term-list,
@@ -1098,6 +1247,14 @@ details[open] > .clause-entry-summary .clause-disclosure-icon {
   color: var(--color-text-tertiary);
 }
 
+/* Scanned-file paths are absolute at runtime and can run long - break
+   inside the path itself rather than overflowing the row or forcing the
+   whole list to scroll sideways. */
+.file-list-item-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .violation-item {
   display: flex;
   align-items: flex-start;
@@ -1141,7 +1298,317 @@ details[open] > .clause-entry-summary .clause-disclosure-icon {
   font-variant-numeric: tabular-nums;
 }
 
-/* 15. Responsive ------------------------------------------------------------- */
+/* 15. About page ------------------------------------------------------------ */
+
+.about-lede {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 68ch;
+  margin-bottom: var(--space-6);
+}
+
+.pipeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.pipeline-step {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-4) var(--space-5);
+}
+
+.pipeline-step-index {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-sm);
+}
+
+.pipeline-step-body {
+  min-width: 0;
+}
+
+.pipeline-step-title {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.pipeline-step-title .stage-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  margin-left: var(--space-2);
+}
+
+.pipeline-step-detail {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.guardrail-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-primary-subtle);
+  border-color: var(--color-border);
+}
+
+.guardrail-callout-text {
+  min-width: 0;
+  max-width: 58ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.guardrail-callout-text strong {
+  color: var(--color-text-primary);
+}
+
+.about-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.about-list li {
+  position: relative;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.about-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-text-tertiary);
+}
+
+.about-list li strong {
+  color: var(--color-text-primary);
+}
+
+.changes-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.change-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.change-item code {
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.change-item span {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.stack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.stack-item {
+  padding: var(--space-4) var(--space-5);
+}
+
+.stack-item dt {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+.stack-item dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.verified-note {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* 16. Upload page ------------------------------------------------------------ */
+
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  max-width: 62rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.form-textarea {
+  font-family: var(--font-mono);
+  line-height: var(--leading-relaxed);
+  resize: vertical;
+  min-height: 12rem;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.form-input:disabled,
+.form-select:disabled,
+.form-textarea:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.form-file-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.form-file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: var(--space-1) var(--space-3);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.form-file-label:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Visually-hidden but still focusable/clickable via the wrapping label -
+   the native file-picker button is unstyled cross-browser, so the label
+   above carries the visible affordance instead. */
+.form-file-label input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.form-file-name {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+}
+
+.upload-cost-notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  background: var(--color-primary-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.upload-cost-notice-icon {
+  flex: none;
+  color: var(--color-primary);
+  margin-top: 0.15rem;
+}
+
+/* 17. Responsive ------------------------------------------------------------- */
 
 @media (max-width: 768px) {
   .app-main {
@@ -1198,9 +1665,22 @@ details[open] > .clause-entry-summary .clause-disclosure-icon {
     align-items: flex-start;
     font-size: var(--text-base);
   }
+
+  .pipeline-step,
+  .guardrail-callout {
+    padding: var(--space-4);
+  }
+
+  .upload-form {
+    padding: var(--space-4);
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* 16. Reduced motion / print --------------------------------------------------- */
+/* 18. Reduced motion / print --------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *,

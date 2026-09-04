@@ -219,10 +219,61 @@ class TestQuoteIsVerbatim:
 
         assert quote_is_verbatim(source, quote) is False
 
-    def test_quote_with_trailing_whitespace_difference_is_not_verbatim(self):
+    def test_quote_with_trailing_whitespace_is_verbatim(self):
         source = "Payment shall be made net 30 days from the invoice date."
         # Same text but with an extra trailing space that isn't in the source -
-        # verbatim means character-for-character, so this must fail too.
+        # leading/trailing whitespace is stripped before comparing, so this
+        # whitespace-only difference must not block a match.
         quote = "net 30 days from the invoice date. "
+
+        assert quote_is_verbatim(source, quote) is True
+
+    def test_newline_in_source_where_quote_has_single_space_is_verbatim(self):
+        # Regression case for a real production document: a payment-milestone
+        # table's cells landed on separate lines in raw_text, and the model
+        # proposed the row with the newline collapsed to a single space.
+        source = (
+            "...% of Total\nAmount\n(INR)\n"
+            "1. Kickoff — Planning & Design On signing & engagement kickoff "
+            "25% ₹2,50,000\n2. Core Development..."
+        )
+        quote = (
+            "(INR) 1. Kickoff — Planning & Design On signing & engagement "
+            "kickoff 25% ₹2,50,000"
+        )
+
+        assert quote_is_verbatim(source, quote) is True
+
+    def test_newline_in_source_where_quote_has_single_space_simple_case(self):
+        source = "Payment shall be made net 30 days\nfrom the invoice date."
+        quote = "net 30 days from the invoice date."
+
+        assert quote_is_verbatim(source, quote) is True
+
+    def test_multiple_spaces_and_tab_in_source_collapse_to_match(self):
+        source = "Payment shall be made net  30\tdays from the invoice date."
+        quote = "net 30 days from the invoice date."
+
+        assert quote_is_verbatim(source, quote) is True
+
+    def test_leading_and_trailing_whitespace_on_quote_is_verbatim(self):
+        source = "Payment shall be made net 30 days from the invoice date."
+        quote = "\n  net 30 days from the invoice date.  \n"
+
+        assert quote_is_verbatim(source, quote) is True
+
+    def test_substituted_number_is_not_verbatim(self):
+        # Same shape as the real table-extraction case, but with the
+        # percentage changed - proves the whitespace fix didn't loosen actual
+        # content matching.
+        source = (
+            "...% of Total\nAmount\n(INR)\n"
+            "1. Kickoff — Planning & Design On signing & engagement kickoff "
+            "25% ₹2,50,000\n2. Core Development..."
+        )
+        quote = (
+            "(INR) 1. Kickoff — Planning & Design On signing & engagement "
+            "kickoff 30% ₹2,50,000"
+        )
 
         assert quote_is_verbatim(source, quote) is False

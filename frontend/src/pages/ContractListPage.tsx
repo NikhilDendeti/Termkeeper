@@ -75,40 +75,57 @@ export default function ContractListPage() {
         <>
           <ContractStatRow contracts={state.contracts} />
           <ol className="contract-list" data-testid="contract-list">
-            {state.contracts.map((contract) => (
-              <li key={contract.contract_id} className="card contract-card-wrap">
-                <Link to={`/contracts/${contract.contract_id}`} className="contract-card">
-                  <div className="contract-card-top">
-                    <span className="contract-card-title">{contract.engagement_id}</span>
-                    <div className="contract-card-score">
-                      {contract.overall_risk_score !== null ? (
-                        <SeverityBadge severity={scoreToSeverityBand(contract.overall_risk_score)} />
-                      ) : (
-                        <span className="score-value is-empty">Not yet scored</span>
-                      )}
-                      {contract.needs_human_review_count > 0 && (
-                        <SeverityBadge severity="needs_human_review" />
-                      )}
+            {state.contracts.map((contract) => {
+              const band: "unscored" | ReturnType<typeof scoreToSeverityBand> =
+                contract.overall_risk_score !== null
+                  ? scoreToSeverityBand(contract.overall_risk_score)
+                  : "unscored";
+              return (
+                <li
+                  key={contract.contract_id}
+                  className={`card contract-card-wrap contract-card-wrap--${band}`}
+                >
+                  <Link to={`/contracts/${contract.contract_id}`} className="contract-card">
+                    <div className="contract-card-top">
+                      <span className="contract-card-title">{contract.engagement_id}</span>
+                      <div className="contract-card-score">
+                        {contract.overall_risk_score !== null ? (
+                          <SeverityBadge severity={scoreToSeverityBand(contract.overall_risk_score)} />
+                        ) : (
+                          <span className="score-value is-empty">Not yet scored</span>
+                        )}
+                        {contract.needs_human_review_count > 0 && (
+                          <SeverityBadge severity="needs_human_review" />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="contract-card-meta">
-                    <span>
-                      Score:{" "}
-                      <span className="score-value font-numeric">
-                        {formatScore(contract.overall_risk_score)}
+                    <div className="contract-card-meta">
+                      <span>
+                        Score:{" "}
+                        <span className="score-value font-numeric">
+                          {formatScore(contract.overall_risk_score)}
+                        </span>
                       </span>
-                    </span>
-                    <span>{razorpayReferenceTypeLabel(contract.razorpay_reference_type)}</span>
-                    <span>
-                      {contract.needs_human_review_count}{" "}
-                      {contract.needs_human_review_count === 1 ? "clause" : "clauses"} needing review
-                    </span>
-                    <span>Ingested {formatDateTime(contract.created_at)}</span>
-                    <code>{contract.contract_id}</code>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                      <span>{razorpayReferenceTypeLabel(contract.razorpay_reference_type)}</span>
+                      <span>
+                        {contract.needs_human_review_count}{" "}
+                        {contract.needs_human_review_count === 1 ? "clause" : "clauses"} needing review
+                      </span>
+                      <span>Ingested {formatDateTime(contract.created_at)}</span>
+                      <code>{contract.contract_id}</code>
+                    </div>
+                  </Link>
+                  <Link
+                    to={`/contracts/${contract.contract_id}`}
+                    className="contract-card-doc-link"
+                    aria-label={`View the original document for ${contract.engagement_id}`}
+                  >
+                    <Icon name="file-text" size={13} />
+                    View document
+                  </Link>
+                </li>
+              );
+            })}
           </ol>
         </>
       )}
@@ -144,7 +161,13 @@ function ContractStatRow({ contracts }: { contracts: ContractSummary[] }) {
       </div>
       <div className="card stat-tile">
         <p className="stat-tile-label">Average risk score</p>
-        <p className="stat-tile-value font-numeric">{formatScore(avgScore)}</p>
+        <p
+          className={`stat-tile-value font-numeric${
+            avgScore !== null ? ` stat-tile-value--${scoreToSeverityBand(avgScore)}` : ""
+          }`}
+        >
+          {formatScore(avgScore)}
+        </p>
         <p className="stat-tile-hint">{scored.length} of {contracts.length} scored</p>
       </div>
     </div>

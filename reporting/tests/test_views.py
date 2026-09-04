@@ -42,6 +42,52 @@ class TestContractReportAPIView:
         assert "needs_human_review_clauses" in body
         assert body["flagged_clauses"][0]["severity"] == "high"
 
+
+class TestContractDocumentAPIView:
+    """A contract's own fields, including its full raw_text - not exposed anywhere else."""
+
+    def test_get_returns_the_full_document(self, client):
+        contract = ContractFactory(
+            raw_text="1. PAYMENT. Client pays Contractor INR 10,000 monthly.",
+            engagement_id="doc-view-test",
+            razorpay_reference_type=RazorpayReferenceType.PAYOUT,
+            razorpay_reference_id="pout_doc_test",
+        )
+
+        url = reverse("contract-document", kwargs={"contract_id": contract.id})
+        response = client.get(url)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["contract_id"] == str(contract.id)
+        assert body["engagement_id"] == "doc-view-test"
+        assert body["razorpay_reference_type"] == "payout"
+        assert body["razorpay_reference_id"] == "pout_doc_test"
+        assert body["raw_text"] == "1. PAYMENT. Client pays Contractor INR 10,000 monthly."
+        assert "created_at" in body
+        assert body["needs_human_review"] is False
+        assert body["human_review_reason"] is None
+
+    def test_unknown_contract_returns_404(self, client):
+        url = reverse("contract-document", kwargs={"contract_id": uuid.uuid4()})
+        response = client.get(url)
+
+        assert response.status_code == 404
+
+    def test_flagged_contract_exposes_its_review_flag_and_reason(self, client):
+        contract = ContractFactory(
+            needs_human_review=True,
+            human_review_reason="Stage-1 segmentation failed verbatim-matching twice.",
+        )
+
+        url = reverse("contract-document", kwargs={"contract_id": contract.id})
+        response = client.get(url)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["needs_human_review"] is True
+        assert body["human_review_reason"] == "Stage-1 segmentation failed verbatim-matching twice."
+
     def test_severity_breakdown_by_clause_type_appears_in_the_live_response(self, client):
         """Task 1.4 / spec: reporting/clause-type-breakdown."""
         contract = ContractFactory()

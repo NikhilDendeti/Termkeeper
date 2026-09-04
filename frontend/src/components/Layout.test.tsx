@@ -11,6 +11,8 @@ function renderLayout(initialPath = "/") {
         <Route element={<Layout />}>
           <Route path="/" element={<p>Contracts page</p>} />
           <Route path="/guardrail" element={<p>Guardrail page</p>} />
+          <Route path="/evaluation" element={<p>Evaluation page</p>} />
+          <Route path="/upload" element={<p>Upload page</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -18,12 +20,15 @@ function renderLayout(initialPath = "/") {
 }
 
 describe("Layout", () => {
-  it("renders the main navigation with Contracts and Guardrail Status links", () => {
+  it("renders the main navigation with Contracts, Guardrail Status, Evaluation, About, and Upload links", () => {
     renderLayout();
     const nav = screen.getByRole("navigation", { name: /main/i });
     expect(nav).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Contracts" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Guardrail Status" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Evaluation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "About" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Upload" })).toBeInTheDocument();
   });
 
   it("renders the routed page content via the Outlet", () => {

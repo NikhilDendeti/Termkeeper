@@ -107,6 +107,11 @@ export function formatScore(score: number | null): string {
   return score.toFixed(2);
 }
 
+/** A 0-1 fraction (precision, recall, f1, severity_calibration_score, ...) as a percentage. */
+export function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;

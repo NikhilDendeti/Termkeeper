@@ -34,6 +34,14 @@ MULTI_TOPIC_CLAUSE_TEXT = (
     "(c) returning or destroying it upon termination of this Agreement."
 )
 
+TABLE_LINEBREAK_SOURCE = (
+    "Payment Milestones. Description Trigger % of Total\nAmount\n(INR)\n"
+    "1. Kickoff — Planning & Design On signing & engagement kickoff 25% ₹2,50,000"
+)
+TABLE_LINEBREAK_PROPOSED_CLAUSE = (
+    "(INR) 1. Kickoff — Planning & Design On signing & engagement kickoff 25% ₹2,50,000"
+)
+
 
 def _segmentation_response(*texts: str) -> dict:
     return {"clauses": [{"text": text} for text in texts]}
@@ -64,6 +72,22 @@ class TestVerbatimClauseExtraction:
         assert [c.clause_text for c in clauses] == [CLAUSE_1_TEXT, CLAUSE_2_TEXT]
         assert [c.sequence_index for c in clauses] == [0, 1]
         assert Clause.objects.filter(contract=contract).count() == 2
+
+    @patch("core.llm_client.get_structured_completion")
+    def test_table_extraction_linebreak_does_not_block_verbatim_match(self, mock_completion):
+        """A table-cell line break in raw_text, collapsed to a space by the model, must not
+        cause a false escalation to needs_human_review (regression case for a real production
+        document)."""
+        contract = ContractFactory(raw_text=TABLE_LINEBREAK_SOURCE)
+        mock_completion.return_value = _segmentation_response(TABLE_LINEBREAK_PROPOSED_CLAUSE)
+
+        clauses = segment_contract(contract=contract)
+
+        assert mock_completion.call_count == 1  # succeeds on first attempt, no retry needed
+        assert len(clauses) == 1
+        assert clauses[0].clause_text == TABLE_LINEBREAK_PROPOSED_CLAUSE
+        reloaded = Contract.objects.get(id=contract.id)
+        assert reloaded.needs_human_review is False
 
 
 class TestMultiTopicClausesStayWhole:

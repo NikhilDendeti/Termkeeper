@@ -11,6 +11,7 @@ design.md (add-django-foundation) - Goals.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -22,6 +23,8 @@ from contracts import services as contracts_services
 from contracts.models import Clause, ClauseType, Contract
 from core import llm_client
 from pipeline.models import AuditLogEntry, ExtractedTerm, PipelineStage, TermType
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Stage 1: segmentation
@@ -381,7 +384,10 @@ def run_pipeline(*, contract: Contract, from_stage: int = 1) -> None:
     cleanly. `detect_mismatches` reads its own inputs from the database via
     selectors - this function passes it only `contract`, never a
     pre-fetched ExtractedTerm, preserving the no-in-memory-handoff rule
-    above.
+    above. A stage-4 failure (e.g. a Razorpay API error) is caught, logged,
+    and never allowed to stop the pipeline - stage 5 must still run so every
+    clause gets a RiskAssessment even when the platform cross-check could
+    not complete.
 
     After stage 4, this also invokes `risk_scoring.services.score_clause`
     (pipeline stage 5 - see
@@ -415,7 +421,14 @@ def run_pipeline(*, contract: Contract, from_stage: int = 1) -> None:
     if settings.ENABLE_STAGE_4:
         from razorpay_integration import services as razorpay_integration_services
 
-        razorpay_integration_services.detect_mismatches(contract=contract)
+        try:
+            razorpay_integration_services.detect_mismatches(contract=contract)
+        except Exception:  # noqa: BLE001 - deliberately broad, see run_pipeline docstring
+            logger.exception(
+                "pipeline stage 4 (detect_mismatches) failed for contract_id=%s; "
+                "continuing to stage 5",
+                contract.id,
+            )
 
     from risk_scoring import services as risk_scoring_services
 

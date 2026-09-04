@@ -26,6 +26,15 @@ export default function Layout() {
             <NavLink to="/guardrail" className={navLinkClassName}>
               Guardrail Status
             </NavLink>
+            <NavLink to="/evaluation" className={navLinkClassName}>
+              Evaluation
+            </NavLink>
+            <NavLink to="/about" className={navLinkClassName}>
+              About
+            </NavLink>
+            <NavLink to="/upload" className={navLinkClassName}>
+              Upload
+            </NavLink>
           </nav>
         </div>
       </header>

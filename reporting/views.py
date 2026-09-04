@@ -24,6 +24,7 @@ from reporting import selectors as reporting_selectors
 from reporting.serializers import (
     AuditLogEntrySerializer,
     ClauseReasoningChainSerializer,
+    ContractDocumentSerializer,
     ContractReportSerializer,
     ContractSummarySerializer,
     GuardrailScanResultSerializer,
@@ -48,6 +49,22 @@ class ContractReportAPIView(APIView):
         contract = _get_contract_or_404(contract_id)
         report = reporting_selectors.get_contract_report(contract=contract)
         serializer = ContractReportSerializer(instance=report)
+        return Response(serializer.data)
+
+
+class ContractDocumentAPIView(APIView):
+    """GET a contract's own fields, including its full original raw_text.
+
+    Every other endpoint returns segmented clauses or aggregated scores -
+    this is the only one that returns the whole document a person actually
+    submitted, unaggregated, so it can be read end to end rather than
+    pieced together from clause fragments.
+    """
+
+    def get(self, request: Request, contract_id: uuid.UUID) -> Response:
+        contract = _get_contract_or_404(contract_id)
+        document = reporting_selectors.get_contract_document(contract=contract)
+        serializer = ContractDocumentSerializer(instance=document)
         return Response(serializer.data)
 
 

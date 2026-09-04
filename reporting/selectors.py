@@ -163,6 +163,57 @@ def list_contract_summaries() -> list[ContractSummary]:
 
 
 # ---------------------------------------------------------------------------
+# Contract document (the original submitted text, not yet exposed anywhere -
+# every other endpoint returns segmented clauses or aggregates, never the
+# whole document a person could actually read end to end)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ContractDocument:
+    """A Contract's own fields, including its full raw_text.
+
+    Every other read in this app returns segmented clauses or aggregated
+    scores - nothing exposes the original document a human submitted, so a
+    viewer has no way to read the whole contract as written. This closes
+    that gap with a direct, unaggregated read of the Contract row itself.
+
+    `needs_human_review` and `human_review_reason` mirror the Contract-level
+    fields `contracts.services.mark_contract_needs_human_review` sets when
+    stage-1 segmentation fails verbatim-matching twice - previously set on
+    the model but never read back out through any selector or serializer,
+    so a flagged contract's viewer had no way to see why. `human_review_reason`
+    is `None` whenever `needs_human_review` is `False` (the model's own
+    default state - never set together).
+    """
+
+    contract_id: uuid.UUID
+    engagement_id: str
+    razorpay_reference_type: str
+    razorpay_reference_id: str
+    raw_text: str
+    source_filename: str | None
+    created_at: datetime
+    needs_human_review: bool
+    human_review_reason: str | None
+
+
+def get_contract_document(*, contract: Contract) -> ContractDocument:
+    """Return a Contract's own fields, including its full raw_text, unaggregated."""
+    return ContractDocument(
+        contract_id=contract.id,
+        engagement_id=contract.engagement_id,
+        razorpay_reference_type=contract.razorpay_reference_type,
+        razorpay_reference_id=contract.razorpay_reference_id,
+        raw_text=contract.raw_text,
+        source_filename=contract.source_filename,
+        created_at=contract.created_at,
+        needs_human_review=contract.needs_human_review,
+        human_review_reason=contract.human_review_reason,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Reasoning-chain assembly (spec: api/reasoning-chain; report-ui/reasoning-chain-view)
 # ---------------------------------------------------------------------------
 #

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -237,14 +238,26 @@ def _validate_against_schema(
                 )
 
 
-def quote_is_verbatim(source: str, quote: str) -> bool:
-    """Return whether `quote` appears character-for-character within `source`.
+_WHITESPACE_RUN = re.compile(r"\s+")
 
-    A strict substring check - no stripping, normalizing, or fuzzy matching.
-    This is the shared grounding validator every pipeline stage uses to
-    confirm a model-proposed span (a clause, an extracted value) is actually
-    present in the contract text rather than paraphrased or hallucinated;
-    per the segmentation spec, clauses must be reproduced "character-for-
-    character", so even a whitespace-only divergence must fail here.
+
+def _normalize_whitespace(text: str) -> str:
+    """Collapse whitespace runs to one space and strip leading/trailing whitespace."""
+    return _WHITESPACE_RUN.sub(" ", text).strip()
+
+
+def quote_is_verbatim(source: str, quote: str) -> bool:
+    """Return whether `quote` appears within `source`, ignoring whitespace formatting.
+
+    A strict substring check on the actual words/characters - no fuzzy, semantic, or
+    approximate matching, and a substituted, omitted, or added word still fails here.
+    The one tolerance: runs of whitespace (spaces, tabs, newlines) in both `source` and
+    `quote` are collapsed to a single space, and leading/trailing whitespace is stripped,
+    before comparing - so line-wrapping and table-cell-extraction artifacts in a contract's
+    raw_text (e.g. a payment-milestone table whose cells land on separate lines when copied
+    into raw_text) don't cause a false verbatim-match failure. This is the shared grounding
+    validator every pipeline stage uses to confirm a model-proposed span (a clause, an
+    extracted value, a risk explanation's quote, a mismatch description's quote) is actually
+    present in the source text rather than paraphrased or hallucinated.
     """
-    return source.find(quote) != -1
+    return _normalize_whitespace(source).find(_normalize_whitespace(quote)) != -1

@@ -64,6 +64,24 @@ export interface ContractSummary {
 }
 
 // ---------------------------------------------------------------------------
+// contracts/upload-api (ContractCreateSerializer request / response) - see
+// contracts/serializers.py::ContractCreateSerializer and
+// contracts/views.py::ContractCreateAPIView.
+// ---------------------------------------------------------------------------
+
+export interface ContractCreatePayload {
+  raw_text: string;
+  engagement_id: string;
+  razorpay_reference_type: RazorpayReferenceType;
+  razorpay_reference_id: string;
+  source_filename?: string | null;
+}
+
+export interface ContractCreateResponse {
+  contract_id: string;
+}
+
+// ---------------------------------------------------------------------------
 // Existing: GET /contracts/<id>/report/ (ContractReportSerializer)
 // ---------------------------------------------------------------------------
 
@@ -115,6 +133,44 @@ export interface ContractReport {
   platform_mismatches: PlatformMismatch[];
   needs_human_review_clauses: NeedsHumanReviewClause[];
   severity_breakdown_by_clause_type: Record<string, ClauseTypeSeverityBreakdown>;
+}
+
+// ---------------------------------------------------------------------------
+// pipeline/analyze-api - POST /contracts/<id>/analyze/ returns a
+// `ContractReport` (above) with a 200 on success. On a mid-run pipeline
+// failure it instead returns this shape with a 502 - see
+// pipeline/views.py::AnalyzeContractAPIView. `partial_progress` is always
+// `true` in this branch (see design.md - the endpoint doesn't attempt to
+// detect "how partial", only that some progress may exist).
+// ---------------------------------------------------------------------------
+
+export interface AnalyzeFailureBody {
+  contract_id: string;
+  error: string;
+  partial_progress: true;
+  detail: string;
+}
+
+// ---------------------------------------------------------------------------
+// GET /contracts/<id>/document/ (ContractDocumentSerializer) - the only
+// endpoint that returns a contract's full original raw_text, unaggregated.
+// ---------------------------------------------------------------------------
+
+export interface ContractDocument {
+  contract_id: string;
+  engagement_id: string;
+  razorpay_reference_type: RazorpayReferenceType;
+  razorpay_reference_id: string;
+  raw_text: string;
+  source_filename: string | null;
+  created_at: string;
+  // Contract-level review flag - distinct from the per-clause
+  // `classification_needs_human_review` concept on ClauseReasoningChain.
+  // Set by contracts.services.mark_contract_needs_human_review when stage-1
+  // segmentation fails verbatim-matching twice. `human_review_reason` is
+  // `null` whenever `needs_human_review` is `false`.
+  needs_human_review: boolean;
+  human_review_reason: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -218,4 +274,79 @@ export interface GuardrailScanResult {
   passed: boolean;
   scanned_files: string[];
   violations: GuardrailViolation[];
+}
+
+// ---------------------------------------------------------------------------
+// GET /eval-runs/latest/ (EvalRunSerializer / LatestEvalRunAPIView) - the
+// evaluation harness's persisted scoring result. Field names mirror
+// evaluation/dataset_types.py's `RiskSeverityScores.as_dict()` /
+// `MismatchFlagScores.as_dict()` / `CostReport.as_dict()` exactly, since
+// EvalRun.precision_recall_f1/cost_report store those dicts verbatim (see
+// evaluation/services.py::run_eval).
+// ---------------------------------------------------------------------------
+
+export interface RiskSeverityScores {
+  precision: number;
+  recall: number;
+  f1: number;
+  human_review_recall: number;
+  true_positives: number;
+  false_positives: number;
+  false_negatives: number;
+  scored_clause_count: number;
+  human_review_clause_count: number;
+}
+
+export interface MismatchPresentScores {
+  precision: number;
+  recall: number;
+  true_positives: number;
+  false_positives: number;
+  false_negatives: number;
+}
+
+export interface PrecisionRecallF1 {
+  risk_severity: RiskSeverityScores;
+  mismatch_present: MismatchPresentScores;
+}
+
+// One `by_clause_type`/`by_mismatch_type` bucket entry - see
+// evaluation/selectors.py::_bump_cost_bucket.
+export interface CostBucketEntry {
+  fp_count: number;
+  fn_count: number;
+  fp_cost: number;
+  fn_cost: number;
+}
+
+export interface CostReport {
+  minutes_per_dismissed_flag: number;
+  fp_count: number;
+  fn_count: number;
+  fp_cost: number;
+  fn_cost: number;
+  // null when fp_cost is 0 (nothing to divide by) - see
+  // evaluation/selectors.py::compute_cost_report.
+  fn_to_fp_cost_ratio: number | null;
+  by_clause_type: Record<string, CostBucketEntry>;
+  by_mismatch_type: Record<string, CostBucketEntry>;
+}
+
+export interface EvalRun {
+  id: string;
+  run_at: string;
+  dataset_version: string;
+  fixture_version: string;
+  precision_recall_f1: PrecisionRecallF1;
+  severity_calibration_score: number;
+  cost_report: CostReport;
+  false_positive_cost_note: string;
+  pipeline_version: string;
+  prompt_version: string;
+}
+
+// `eval_run` is explicitly null (never an omitted key) when no EvalRun has
+// ever been persisted - see evaluation/views.py::LatestEvalRunAPIView.
+export interface LatestEvalRunResponse {
+  eval_run: EvalRun | null;
 }

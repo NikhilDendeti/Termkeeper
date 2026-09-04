@@ -18,7 +18,11 @@ export type IconName =
   | "shield-check"
   | "help-circle"
   | "file-text"
-  | "clock";
+  | "clock"
+  | "info"
+  | "arrow-right"
+  | "layers"
+  | "git-branch";
 
 interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name"> {
   name: IconName;
@@ -105,6 +109,34 @@ const ICON_GLYPHS: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15.5 14" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <line x1="12" y1="16" x2="12" y2="11.5" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </>
+  ),
+  "arrow-right": (
+    <>
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </>
+  ),
+  layers: (
+    <>
+      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <polyline points="2 17 12 22 22 17" />
+      <polyline points="2 12 12 17 22 12" />
+    </>
+  ),
+  "git-branch": (
+    <>
+      <line x1="6" y1="3" x2="6" y2="15" />
+      <circle cx="18" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M18 9a9 9 0 0 1-9 9" />
     </>
   ),
 };

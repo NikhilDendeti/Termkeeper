@@ -49,6 +49,18 @@ class ContractReportSerializer(serializers.Serializer):
     severity_breakdown_by_clause_type = serializers.DictField(child=serializers.DictField())
 
 
+class ContractDocumentSerializer(serializers.Serializer):
+    contract_id = serializers.UUIDField()
+    engagement_id = serializers.CharField()
+    razorpay_reference_type = serializers.CharField()
+    razorpay_reference_id = serializers.CharField()
+    raw_text = serializers.CharField()
+    source_filename = serializers.CharField(allow_null=True)
+    created_at = serializers.DateTimeField()
+    needs_human_review = serializers.BooleanField()
+    human_review_reason = serializers.CharField(allow_null=True)
+
+
 class AuditLogEntrySerializer(serializers.Serializer):
     id = serializers.UUIDField()
     contract_id = serializers.UUIDField()

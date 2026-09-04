@@ -12,6 +12,7 @@ from django.urls import path
 
 from reporting.views import (
     ContractAuditTrailAPIView,
+    ContractDocumentAPIView,
     ContractListAPIView,
     ContractReasoningChainAPIView,
     ContractReportAPIView,
@@ -28,6 +29,11 @@ urlpatterns = [
         "contracts/<uuid:contract_id>/report/",
         ContractReportAPIView.as_view(),
         name="contract-report",
+    ),
+    path(
+        "contracts/<uuid:contract_id>/document/",
+        ContractDocumentAPIView.as_view(),
+        name="contract-document",
     ),
     path(
         "contracts/<uuid:contract_id>/audit-trail/",

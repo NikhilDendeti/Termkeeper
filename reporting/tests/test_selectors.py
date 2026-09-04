@@ -12,6 +12,7 @@ from pipeline.tests.factories import ExtractedTermFactory
 from razorpay_integration.models import PlatformRecordType
 from razorpay_integration.tests.factories import MismatchFlagFactory, PlatformRecordFactory
 from reporting.selectors import (
+    get_contract_document,
     get_contract_report,
     get_contract_reasoning_chain,
     list_contract_summaries,
@@ -350,3 +351,29 @@ class TestVerifiedPlatformRecordsOnReasoningChain:
 
         assert chains[0].extracted_terms == []
         assert chains[0].verified_platform_records == []
+
+
+class TestContractDocumentNeedsHumanReview:
+    """Contract-level needs_human_review/human_review_reason surfaced on
+    ContractDocument - set by contracts.services.mark_contract_needs_human_review
+    when stage-1 segmentation fails verbatim-matching twice, previously set
+    on the model but never read back out through any selector."""
+
+    def test_flagged_contract_carries_its_review_flag_and_reason(self):
+        contract = ContractFactory(
+            needs_human_review=True,
+            human_review_reason="Stage-1 segmentation failed verbatim-matching twice.",
+        )
+
+        document = get_contract_document(contract=contract)
+
+        assert document.needs_human_review is True
+        assert document.human_review_reason == "Stage-1 segmentation failed verbatim-matching twice."
+
+    def test_unflagged_contract_defaults_to_false_and_no_reason(self):
+        contract = ContractFactory()
+
+        document = get_contract_document(contract=contract)
+
+        assert document.needs_human_review is False
+        assert document.human_review_reason is None

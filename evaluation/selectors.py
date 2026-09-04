@@ -23,7 +23,7 @@ from evaluation.dataset_types import (
     MismatchFlagScores,
     RiskSeverityScores,
 )
-from evaluation.models import EvalLabel, EvalLabelType
+from evaluation.models import EvalLabel, EvalLabelType, EvalRun
 from razorpay_integration.models import MismatchFlag, MismatchType
 from risk_scoring import selectors as risk_scoring_selectors
 from risk_scoring.models import SeverityChoices
@@ -58,6 +58,22 @@ MISMATCH_TYPE_SEVERITY_WEIGHT: dict[str, float] = {
     MismatchType.MISSING_PLATFORM_EVIDENCE.value: 1.5,
     MismatchType.TRIGGER_CONDITION_UNVERIFIABLE.value: 1.0,
 }
+
+
+# ---------------------------------------------------------------------------
+# Latest EvalRun (surfaced read-only by the `evaluation` app's own API - see
+# evaluation/views.py::LatestEvalRunAPIView)
+# ---------------------------------------------------------------------------
+
+
+def get_latest_eval_run() -> EvalRun | None:
+    """The most recently persisted `EvalRun`, or `None` if none exists yet.
+
+    `EvalRun.Meta.ordering = ["-run_at"]` (models.py) already orders every
+    query newest-first, so `.first()` alone returns the latest run with no
+    extra `order_by` needed here.
+    """
+    return EvalRun.objects.first()
 
 
 # ---------------------------------------------------------------------------

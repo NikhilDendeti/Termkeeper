@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AuditLogEntry, ClauseReasoningChain } from "../api/types";
+import type { AuditLogEntry, ClauseReasoningChain, ContractDocument } from "../api/types";
 import ContractDetailPage from "./ContractDetailPage";
 
 vi.mock("../api/client", async () => {
@@ -12,13 +12,33 @@ vi.mock("../api/client", async () => {
     ...actual,
     getContractReasoningChain: vi.fn(),
     getContractAuditTrail: vi.fn(),
+    getContractDocument: vi.fn(),
   };
 });
 
-import { getContractAuditTrail, getContractReasoningChain } from "../api/client";
+import { getContractAuditTrail, getContractDocument, getContractReasoningChain } from "../api/client";
 
 const mockedGetChain = vi.mocked(getContractReasoningChain);
 const mockedGetAuditTrail = vi.mocked(getContractAuditTrail);
+const mockedGetDocument = vi.mocked(getContractDocument);
+
+const sampleDocument: ContractDocument = {
+  contract_id: "c1",
+  engagement_id: "engagement-1",
+  razorpay_reference_type: "payout",
+  razorpay_reference_id: "pout_test_001",
+  raw_text: "1. PAYMENT. Client pays Contractor INR 10,000 monthly.",
+  source_filename: null,
+  created_at: "2026-01-01T00:00:00Z",
+  needs_human_review: false,
+  human_review_reason: null,
+};
+
+/** The page defaults to the Document tab on load - open Reasoning chain explicitly. */
+async function openReasoningChainTab(user: ReturnType<typeof userEvent.setup>) {
+  await waitFor(() => expect(screen.getByRole("tab", { name: /reasoning chain/i })).toBeInTheDocument());
+  await user.click(screen.getByRole("tab", { name: /reasoning chain/i }));
+}
 
 function renderPage(contractId = "c1") {
   return render(
@@ -92,15 +112,64 @@ describe("ContractDetailPage", () => {
   beforeEach(() => {
     mockedGetChain.mockReset();
     mockedGetAuditTrail.mockReset();
+    mockedGetDocument.mockReset();
+    mockedGetDocument.mockResolvedValue(sampleDocument);
   });
 
-  it("shows loading, then the reasoning chain in sequence order", async () => {
+  it("shows loading, then the Document tab by default, with the original text", async () => {
     mockedGetChain.mockResolvedValueOnce([scoredClause, unscoredClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
     renderPage();
 
     expect(screen.getByTestId("loading-state")).toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByTestId("document-raw-text")).toBeInTheDocument());
+
+    expect(screen.getByRole("tab", { name: /document/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("document-raw-text")).toHaveTextContent(sampleDocument.raw_text);
+    expect(screen.getByText("engagement-1")).toBeInTheDocument();
+    expect(screen.getByText("pout_test_001")).toBeInTheDocument();
+  });
+
+  it("shows a needs-human-review banner with the reason when the contract document is flagged", async () => {
+    mockedGetChain.mockResolvedValueOnce([scoredClause, unscoredClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+    mockedGetDocument.mockReset();
+    mockedGetDocument.mockResolvedValue({
+      ...sampleDocument,
+      needs_human_review: true,
+      human_review_reason: "Stage-1 segmentation failed verbatim-matching twice.",
+    });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId("document-raw-text")).toBeInTheDocument());
+
+    expect(screen.getByTestId("needs-review-banner")).toBeInTheDocument();
+    expect(screen.getByTestId("needs-review-reason")).toHaveTextContent(
+      "Stage-1 segmentation failed verbatim-matching twice.",
+    );
+  });
+
+  it("shows no needs-human-review banner when the contract document is not flagged", async () => {
+    mockedGetChain.mockResolvedValueOnce([scoredClause, unscoredClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId("document-raw-text")).toBeInTheDocument());
+
+    expect(screen.queryByTestId("needs-review-banner")).not.toBeInTheDocument();
+  });
+
+  it("shows the reasoning chain in sequence order once that tab is selected", async () => {
+    mockedGetChain.mockResolvedValueOnce([scoredClause, unscoredClause]);
+    mockedGetAuditTrail.mockResolvedValueOnce([]);
+
+    const user = userEvent.setup();
+    renderPage();
+    await openReasoningChainTab(user);
 
     await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
 
@@ -113,7 +182,9 @@ describe("ContractDetailPage", () => {
     mockedGetChain.mockResolvedValueOnce([scoredClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
+    const user = userEvent.setup();
     renderPage();
+    await openReasoningChainTab(user);
 
     await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
 
@@ -139,7 +210,9 @@ describe("ContractDetailPage", () => {
     mockedGetChain.mockResolvedValueOnce([confirmedClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
+    const user = userEvent.setup();
     renderPage();
+    await openReasoningChainTab(user);
 
     await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
 
@@ -181,7 +254,9 @@ describe("ContractDetailPage", () => {
     mockedGetChain.mockResolvedValueOnce([mismatchedClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
+    const user1 = userEvent.setup();
     renderPage();
+    await openReasoningChainTab(user1);
 
     await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
 
@@ -193,7 +268,9 @@ describe("ContractDetailPage", () => {
     mockedGetChain.mockResolvedValueOnce([unscoredClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
+    const user2 = userEvent.setup();
     renderPage();
+    await openReasoningChainTab(user2);
 
     await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
 
@@ -211,7 +288,9 @@ describe("ContractDetailPage", () => {
     mockedGetChain.mockResolvedValueOnce([scoredClause, reviewClause]);
     mockedGetAuditTrail.mockResolvedValueOnce([]);
 
+    const user3 = userEvent.setup();
     renderPage();
+    await openReasoningChainTab(user3);
 
     await waitFor(() => expect(screen.getByTestId("clause-chain")).toBeInTheDocument());
 

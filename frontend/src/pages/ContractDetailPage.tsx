@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { ApiError, getContractAuditTrail, getContractReasoningChain } from "../api/client";
-import type { AuditLogEntry, ClauseReasoningChain } from "../api/types";
+import {
+  ApiError,
+  getContractAuditTrail,
+  getContractDocument,
+  getContractReasoningChain,
+} from "../api/client";
+import type { AuditLogEntry, ClauseReasoningChain, ContractDocument } from "../api/types";
 import ErrorState from "../components/ErrorState";
 import Icon from "../components/Icon";
 import LoadingState from "../components/LoadingState";
@@ -13,26 +18,34 @@ import {
   mismatchTypeLabel,
   pipelineStageLabel,
   platformRecordTypeLabel,
+  razorpayReferenceTypeLabel,
   termTypeLabel,
 } from "../utils/format";
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; chain: ClauseReasoningChain[]; auditTrail: AuditLogEntry[] };
+  | {
+      status: "ready";
+      chain: ClauseReasoningChain[];
+      auditTrail: AuditLogEntry[];
+      document: ContractDocument;
+    };
 
-type Tab = "reasoning-chain" | "audit-trail";
+type Tab = "document" | "reasoning-chain" | "audit-trail";
 
 /**
- * Selecting a contract shows its full reasoning chain plus its audit
- * trail, in two sections of one page. See
+ * Selecting a contract shows its original document, its full reasoning
+ * chain, and its audit trail, in three sections of one page. See
  * specs/frontend/contract-dashboard/spec.md - "Contract detail shows the
- * full reasoning chain" and "Audit trail is reachable per contract".
+ * full reasoning chain" and "Audit trail is reachable per contract" - the
+ * document tab itself predates a formal spec (added directly in response
+ * to a real gap: nothing surfaced the original submitted text anywhere).
  */
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [tab, setTab] = useState<Tab>("reasoning-chain");
+  const [tab, setTab] = useState<Tab>("document");
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
@@ -40,9 +53,9 @@ export default function ContractDetailPage() {
     let cancelled = false;
     setState({ status: "loading" });
 
-    Promise.all([getContractReasoningChain(id), getContractAuditTrail(id)])
-      .then(([chain, auditTrail]) => {
-        if (!cancelled) setState({ status: "ready", chain, auditTrail });
+    Promise.all([getContractReasoningChain(id), getContractAuditTrail(id), getContractDocument(id)])
+      .then(([chain, auditTrail, document]) => {
+        if (!cancelled) setState({ status: "ready", chain, auditTrail, document });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -83,6 +96,15 @@ export default function ContractDetailPage() {
             <button
               type="button"
               role="tab"
+              aria-selected={tab === "document"}
+              className={tab === "document" ? "tab-button is-active" : "tab-button"}
+              onClick={() => setTab("document")}
+            >
+              Document
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={tab === "reasoning-chain"}
               className={tab === "reasoning-chain" ? "tab-button is-active" : "tab-button"}
               onClick={() => setTab("reasoning-chain")}
@@ -100,11 +122,59 @@ export default function ContractDetailPage() {
             </button>
           </div>
 
+          {tab === "document" && <DocumentSection document={state.document} />}
           {tab === "reasoning-chain" && <ReasoningChainSection chain={state.chain} />}
           {tab === "audit-trail" && <AuditTrailSection entries={state.auditTrail} />}
         </>
       )}
     </>
+  );
+}
+
+function DocumentSection({ document }: { document: ContractDocument }) {
+  return (
+    <div className="card document-card">
+      {document.needs_human_review && (
+        <div className="needs-review-banner" role="alert" data-testid="needs-review-banner">
+          <span className="needs-review-banner-icon" aria-hidden="true">
+            <Icon name="alert-triangle" size={16} />
+          </span>
+          <div>
+            <p className="needs-review-banner-title">This contract needs human review</p>
+            <p className="needs-review-banner-reason" data-testid="needs-review-reason">
+              {document.human_review_reason}
+            </p>
+          </div>
+        </div>
+      )}
+      <dl className="audit-meta-grid document-meta-grid">
+        <div className="audit-meta-item">
+          <dt>Engagement</dt>
+          <dd>{document.engagement_id}</dd>
+        </div>
+        <div className="audit-meta-item">
+          <dt>Razorpay reference</dt>
+          <dd>
+            {razorpayReferenceTypeLabel(document.razorpay_reference_type)} &middot;{" "}
+            <code>{document.razorpay_reference_id}</code>
+          </dd>
+        </div>
+        <div className="audit-meta-item">
+          <dt>Submitted</dt>
+          <dd>{formatDateTime(document.created_at)}</dd>
+        </div>
+        {document.source_filename && (
+          <div className="audit-meta-item">
+            <dt>Source file</dt>
+            <dd>{document.source_filename}</dd>
+          </div>
+        )}
+      </dl>
+      <p className="reasoning-stage-label">Original text, as submitted</p>
+      <pre className="document-raw-text" data-testid="document-raw-text">
+        {document.raw_text}
+      </pre>
+    </div>
   );
 }
 

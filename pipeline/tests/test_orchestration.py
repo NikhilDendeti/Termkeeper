@@ -14,11 +14,13 @@ behavior is covered by razorpay_integration/tests/.
 from unittest.mock import patch
 
 import pytest
+from django.test import override_settings
 
 from contracts.models import Clause, Contract
 from contracts.tests.factories import ContractFactory
 from pipeline.models import AuditLogEntry, ExtractedTerm
 from pipeline.services import run_pipeline
+from risk_scoring.models import RiskAssessment
 
 pytestmark = pytest.mark.django_db
 
@@ -46,6 +48,16 @@ _EXTRACTION_RESPONSE = {
             "confidence": 0.9,
         }
     ]
+}
+_RISK_SCORING_RESPONSE = {
+    "sentences": [
+        {
+            "text": "Payment is due a fixed 30 days after invoicing.",
+            "quote": "net 30 days from the invoice date",
+        }
+    ],
+    "asymmetry_score": 0.3,
+    "suggested_rewrite": None,
 }
 
 
@@ -83,6 +95,37 @@ class TestRunPipelineFullRun:
 
         reloaded_contract = Contract.objects.get(id=contract.id)
         assert reloaded_contract.needs_human_review is False
+
+    @override_settings(ENABLE_STAGE_4=True)
+    @patch("razorpay_integration.services.detect_mismatches")
+    @patch("core.llm_client.get_structured_completion")
+    def test_stage_4_failure_does_not_block_stage_5_risk_scoring(
+        self, mock_completion, mock_detect_mismatches
+    ):
+        """A raising `detect_mismatches` must be caught and logged, not propagated.
+
+        Regression test: previously an exception from stage 4 propagated out
+        of `run_pipeline` entirely, so the stage-5 loop below it never ran
+        and no RiskAssessment rows were created for the contract.
+        """
+        contract = ContractFactory(raw_text=PAYMENT_CLAUSE_TEXT)
+        mock_completion.side_effect = [
+            _SEGMENTATION_RESPONSE,
+            _CLASSIFICATION_RESPONSE,
+            _EXTRACTION_RESPONSE,
+            _RISK_SCORING_RESPONSE,
+        ]
+        mock_detect_mismatches.side_effect = RuntimeError("Razorpay API unavailable")
+
+        run_pipeline(contract=contract, from_stage=1)
+
+        mock_detect_mismatches.assert_called_once_with(contract=contract)
+        assert mock_completion.call_count == 4
+
+        clause = Clause.objects.get(contract=contract)
+        assessments = RiskAssessment.objects.filter(clause=clause)
+        assert assessments.count() == 1
+        assert AuditLogEntry.objects.filter(contract=contract, stage=5).count() == 1
 
     @patch("core.llm_client.get_structured_completion")
     def test_run_pipeline_rejects_invalid_from_stage(self, mock_completion):

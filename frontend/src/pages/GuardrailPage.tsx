@@ -62,6 +62,34 @@ export default function GuardrailPage() {
 
       {state.status === "ready" && (
         <>
+          <div className="stat-grid" data-testid="guardrail-stats">
+            <div className="card stat-tile">
+              <p className="stat-tile-label">Status</p>
+              <p
+                className={`stat-tile-value ${
+                  state.result.passed ? "stat-tile-value--low" : "stat-tile-value--critical"
+                }`}
+              >
+                {state.result.passed ? "Pass" : "Fail"}
+              </p>
+            </div>
+            <div className="card stat-tile">
+              <p className="stat-tile-label">Files scanned</p>
+              <p className="stat-tile-value font-numeric">{state.result.scanned_files.length}</p>
+            </div>
+            <div className="card stat-tile">
+              <p className="stat-tile-label">Write-call violations</p>
+              <p
+                className={`stat-tile-value font-numeric${
+                  state.result.violations.length > 0 ? " is-attention" : ""
+                }`}
+              >
+                {state.result.violations.length}
+              </p>
+              <p className="stat-tile-hint">0 = no write path exists</p>
+            </div>
+          </div>
+
           <div
             className={
               state.result.passed
@@ -93,7 +121,7 @@ export default function GuardrailPage() {
                 {state.result.scanned_files.map((file) => (
                   <li key={file} className="file-list-item">
                     <Icon name="file-text" size={14} />
-                    {file}
+                    <span className="file-list-item-path">{file}</span>
                   </li>
                 ))}
               </ul>
